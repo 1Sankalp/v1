@@ -1,0 +1,60 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_URL_NON_POOLING")
+}
+
+model User {
+  id            String    @id
+  email         String    @unique
+  name          String?
+  username      String    @unique
+  bio           String?
+  avatarUrl     String?
+  portfolios    Portfolio[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("users") // Maps to Supabase's users table
+}
+
+model Portfolio {
+  id            String    @id @default(uuid())
+  title         String
+  description   String?
+  slug          String    @unique // For nice URLs
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  projects      Project[]
+  isPublic      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("portfolios")
+}
+
+model Project {
+  id            String    @id @default(uuid())
+  title         String
+  description   String?
+  repoUrl       String?
+  liveUrl       String?
+  thumbnailUrl  String?
+  technologies  String[]
+  portfolioId   String
+  portfolio     Portfolio @relation(fields: [portfolioId], references: [id])
+  order         Int       @default(0) // For custom ordering
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("projects")
+}

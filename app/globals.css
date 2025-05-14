@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-blue: #0085ff;
+}
+
+@layer base {
+  body {
+    @apply bg-white text-black antialiased;
+  }
+
+  h1 {
+    @apply text-4xl md:text-6xl font-bold tracking-tight;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-12 py-4 bg-[#0085ff] text-white text-xl rounded-xl font-bold
+           transition-all duration-300 hover:bg-[#2999ff] active:transform 
+           active:scale-95 hover:shadow-lg;
+  }
+
+  .btn-text {
+    @apply font-medium text-black transition-colors duration-300 
+           hover:text-[#767676];
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+} 
