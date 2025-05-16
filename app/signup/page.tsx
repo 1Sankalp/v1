@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle, XCircle, Eye, EyeOff, MoveLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { signIn } from 'next-auth/react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../lib/auth';
+import bcrypt from 'bcryptjs';
 
 export default function SignupPage() {
   const [username, setUsername] = useState('');
@@ -23,15 +24,16 @@ export default function SignupPage() {
   const [emailError, setEmailError] = useState(false);
   const [passwordError, setPasswordError] = useState(false);
   const router = useRouter();
-  const { signUp } = useAuth();
 
   const validateUsername = (value: string) => {
+    // Only allow lowercase letters, numbers, and hyphens
     const regex = /^[a-z0-9-]{1,30}$/;
     return regex.test(value);
   };
 
   const checkUsernameAvailability = async (value: string) => {
     if (!validateUsername(value)) {
+      console.log('Username format invalid:', value);
       setIsValidFormat(false);
       setIsAvailable(null);
       return;
@@ -41,15 +43,21 @@ export default function SignupPage() {
     setIsChecking(true);
 
     try {
-      const { data, error } = await supabase
+      // First check the users table
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('username')
-        .eq('username', value)
-        .single();
+        .eq('username', value.toLowerCase())
+        .maybeSingle();
 
-      setIsAvailable(!data);
+      if (userError) {
+        throw userError;
+      }
+
+      setIsAvailable(!userData);
     } catch (error) {
       console.error('Error checking username:', error);
+      setIsAvailable(false);
     } finally {
       setIsChecking(false);
     }
@@ -61,6 +69,7 @@ export default function SignupPage() {
         checkUsernameAvailability(username);
       } else {
         setIsAvailable(null);
+        setIsValidFormat(true);
       }
     }, 500);
 
@@ -68,7 +77,6 @@ export default function SignupPage() {
   }, [username]);
 
   const validateEmail = (email: string) => {
-    // Simpler email validation - just check for @ and .
     const isValid = email.includes('@') && email.includes('.');
     setEmailError(!isValid && email.length > 0);
     return isValid;
@@ -92,28 +100,6 @@ export default function SignupPage() {
     validatePassword(newPassword);
   };
 
-  const createUserRecord = async (userId: string) => {
-    try {
-      const now = new Date().toISOString();
-      const { error } = await supabase
-        .from('users')
-        .insert([
-          {
-            id: userId,
-            email: email,
-            username: username,
-            createdAt: now,
-            updatedAt: now
-          }
-        ]);
-      
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error creating user record:', error);
-      throw error;
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isAvailable && validateUsername(username)) {
@@ -135,28 +121,24 @@ export default function SignupPage() {
         throw new Error('Password must be at least 6 characters long');
       }
 
-      // Sign up and automatically sign in with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            username: username,
-          }
-        }
+      // Sign up the user using credentials provider
+      const result = await signIn('credentials', {
+        email: email.toLowerCase().trim(),
+        password: password.trim(),
+        username: username.toLowerCase().trim(),
+        isSignup: true, // Special flag to indicate signup
+        redirect: false,
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Failed to create account');
-
-      // Create user record in database
-      await createUserRecord(authData.user.id);
-
-      // Change URL to username and show success
-      router.push(`/${username}`);
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+      
+      // Show success message
       setShowSuccess(true);
     } catch (err: any) {
-      setError(err.message);
+      console.error('Signup error:', err);
+      setError(err.message || 'An error occurred during signup');
       setShowSuccess(false);
     } finally {
       setIsLoading(false);
@@ -168,26 +150,12 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-          redirectTo: `${window.location.origin}/${username}`
-        }
+      await signIn(provider, {
+        callbackUrl: `${window.location.origin}/${username}?success=true`
       });
-
-      if (error) throw error;
-      
-      // Change URL to username and show success
-      router.push(`/${username}`);
-      setShowSuccess(true);
     } catch (err: any) {
       setError(err.message);
       setShowSuccess(false);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -461,30 +429,28 @@ export default function SignupPage() {
             >
               <div className="flex flex-col gap-y-8 mb-28">
                 <div className="flex items-center gap-x-3">
-                  <h1 className="text-4xl font-bold">Awesome!</h1>
+                  <h1 className="text-4xl font-bold">Almost there!</h1>
                   <CheckCircle className="text-green-500 w-8 h-8" />
                 </div>
-                <div className="space-y-10">
-                  <p className="text-gray-800 font-bold text-lg">
-                    You can keep adding projects and customising<br /> your profile, and then share it<br /> with the world!
+                <div className="space-y-6">
+                  <p className="text-gray-800 text-lg">
+                    We've sent you a confirmation email. Please check your inbox and click the link to verify your email address.
                   </p>
-                  <p className="text-gray-800 font-bold text-lg">
-                    You will soon be able to add photos, videos,<br /> maps, notes, links, and more!
+                  <p className="text-gray-800 text-lg">
+                    Once verified, you'll be able to log in and start customizing your profile!
+                  </p>
+                  <p className="text-gray-500 text-sm">
+                    Your profile will be available at: superfolio.me/{username}
                   </p>
                 </div>
-                <button
-                  onClick={() => {
-                    // Just toggle the view state since we're already at the correct URL
-                    setShowSuccess(false);
-                  }}
-                  disabled={isLoading}
+                <Link
+                  href="/login"
                   className="w-[288px] bg-[#0085ff] text-white font-bold py-4 px-2 rounded-xl
-                           transition-all duration-300 hover:bg-[#2999ff] active:transform 
-                           active:scale-95 hover:shadow-lg
-                           disabled:opacity-50 disabled:cursor-not-allowed"
+                           text-center transition-all duration-300 hover:bg-[#2999ff] active:transform 
+                           active:scale-95 hover:shadow-lg"
                 >
-                  {isLoading ? 'Loading...' : 'Go to Profile'}
-                </button>
+                  Go to Login
+                </Link>
               </div>
             </motion.div>
           )}

@@ -1,21 +1,24 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import { AuthProvider } from './lib/auth';
 import './globals.css';
+import { headers } from 'next/headers';
+import AuthProvider from './components/AuthProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Superfolio - A Single Link for all your Coding Projects',
-  description: 'Showcase your coding projects in a clean, structured, and visually appealing format.',
+  title: 'Superfolio',
+  description: 'Your super portfolio',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const headersList = headers();
+  
   return (
     <html lang="en">
       <body className={inter.className}>
