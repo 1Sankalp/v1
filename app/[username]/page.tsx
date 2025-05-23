@@ -713,7 +713,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
         profile,
         name,
         bio,
-        avatar
+        avatar,
+        username: params.username // Store username to verify data ownership
       };
       console.log('Storing temp profile data before logout:', tempData);
       sessionStorage.setItem('tempProfileData', JSON.stringify(tempData));
@@ -1527,7 +1528,35 @@ export default function ProfilePage({ params }: { params: { username: string } }
       console.log('Fetching profile for:', params.username);
       setLoading(true);
       try {
-        // Get the user data from Supabase
+        // First try to get data from sessionStorage (for unauthorized views after logout)
+        const tempData = sessionStorage.getItem('tempProfileData');
+        if (tempData) {
+          try {
+            const parsedData = JSON.parse(tempData);
+            console.log('Found temp profile data:', parsedData);
+            
+            // Only use the temp data if it matches the current username
+            if (parsedData.username === params.username) {
+              console.log('Using temp profile data for immediate logout view');
+              setProfile(parsedData.profile);
+              setName(parsedData.name || '');
+              setBio(parsedData.bio || '');
+              setAvatar(parsedData.avatar || null);
+              setProjects(parsedData.projects || []);
+              setSocialLinks(parsedData.socialLinks || []);
+              setIsOwnProfile(false);
+              
+              setLoading(false);
+              setMounted(true);
+              return;
+            }
+          } catch (err) {
+            console.error('Error parsing temp profile data:', err);
+            sessionStorage.removeItem('tempProfileData');
+          }
+        }
+
+        // If no temp data or wrong username, get the user data from Supabase
         const { data: userData, error: userError } = await supabase
           .from('users')
           .select('*')
