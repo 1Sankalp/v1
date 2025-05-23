@@ -721,8 +721,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
       // Sign out from Supabase
       await supabase.auth.signOut();
       
-      // Force an immediate page refresh to show logged out state
-      window.location.href = `/${params.username}`;
+      // Force a page refresh to show unauthorized view
+      window.location.reload();
       
     } catch (err) {
       console.error('Error during logout:', err);
@@ -1640,12 +1640,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
   // Add a handler for login navigation
   const handleLoginClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    // Restore default favicon before navigation
-    if (defaultFaviconRef.current) {
-      setFavicon(defaultFaviconRef.current);
-    }
-    // Use router for navigation
-    router.push('/login');
+    // Use router for navigation without manipulating favicons
+    window.location.href = '/login';
   };
 
     return (
