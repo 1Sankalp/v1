@@ -1527,35 +1527,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
       console.log('Fetching profile for:', params.username);
       setLoading(true);
       try {
-        // First try to get data from sessionStorage (for unauthorized views after logout)
-        const tempData = sessionStorage.getItem('tempProfileData');
-        if (tempData) {
-          try {
-            const parsedData = JSON.parse(tempData);
-            console.log('Found temp profile data:', parsedData);
-            
-            // Only use the temp data if it matches the current username
-            if (parsedData.profile?.username === params.username) {
-              // Set all the profile data from sessionStorage
-              setProfile(parsedData.profile);
-              setName(parsedData.name || '');
-              setBio(parsedData.bio || '');
-              setAvatar(parsedData.avatar || null);
-              setProjects(parsedData.projects || []);
-              setSocialLinks(parsedData.socialLinks || []);
-              
-              // Don't remove the data yet - keep it for page refreshes
-              setLoading(false);
-              setMounted(true);
-              return;
-            }
-          } catch (err) {
-            console.error('Error parsing temp profile data:', err);
-            sessionStorage.removeItem('tempProfileData');
-          }
-        }
-
-        // If no temp data or wrong username, get the user data from Supabase
+        // Get the user data from Supabase
         const { data: userData, error: userError } = await supabase
           .from('users')
           .select('*')
@@ -1564,6 +1536,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
 
         if (userError) throw userError;
         if (!userData) throw new Error('User not found');
+
+        console.log('Found user data:', userData);
 
         // Set basic profile data
         setProfile(userData);
@@ -1577,30 +1551,18 @@ export default function ProfilePage({ params }: { params: { username: string } }
                        session?.user?.user_metadata?.username === params.username;
         setIsOwnProfile(isOwner);
 
-        // Fetch projects in parallel
-        const projectsPromise = supabase
+        // Fetch projects
+        const { data: projectsData, error: projectsError } = await supabase
           .from('projects')
           .select('*')
           .eq('user_id', userData.id)
           .order('created_at', { ascending: false });
 
-        // Fetch social links in parallel
-        const socialsPromise = supabase
-          .from('social_links')
-          .select('*')
-          .eq('user_id', userData.id);
-
-        // Wait for both queries to complete
-        const [projectsResult, socialsResult] = await Promise.all([
-          projectsPromise,
-          socialsPromise
-        ]);
-
-        if (projectsResult.error) throw projectsResult.error;
-        if (socialsResult.error) throw socialsResult.error;
+        if (projectsError) throw projectsError;
+        console.log('Found projects:', projectsData);
 
         // Transform and set projects
-        const transformedProjects = await Promise.all((projectsResult.data || []).map(async p => ({
+        const transformedProjects = await Promise.all((projectsData || []).map(async p => ({
           id: p.id,
           title: p.title || '',
           description: p.description || '',
@@ -1614,9 +1576,18 @@ export default function ProfilePage({ params }: { params: { username: string } }
         console.log('Setting projects:', transformedProjects);
         setProjects(transformedProjects);
 
+        // Fetch social links
+        const { data: socialsData, error: socialsError } = await supabase
+          .from('social_links')
+          .select('*')
+          .eq('user_id', userData.id);
+
+        if (socialsError) throw socialsError;
+        console.log('Found social links:', socialsData);
+
         // Transform and set social links
         const transformedSocials = await Promise.all(
-          (socialsResult.data || []).map(async (link) => ({
+          (socialsData || []).map(async (link: { url: string }) => ({
             url: link.url,
             favicon: await getFavicon(link.url)
           }))
