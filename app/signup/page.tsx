@@ -167,16 +167,22 @@ export default function SignupPage() {
       if (authError) throw authError;
       if (!authData.user) throw new Error('No user returned from auth signup');
 
-      // Create user record
-      const { error: userError } = await supabase
-        .from('users')
-        .insert({
+      // Create user record using fetch to backend endpoint
+      const response = await fetch('/api/create-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           id: authData.user.id,
           email: email.toLowerCase().trim(),
           username: username.toLowerCase().trim(),
-        });
+        }),
+      });
 
-      if (userError) throw userError;
+      if (!response.ok) {
+        throw new Error('Failed to create user record');
+      }
 
       setShowSuccess(true);
     } catch (err: any) {
