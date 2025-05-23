@@ -20,8 +20,8 @@ export default async function RootLayout({
   const headersList = headers();
   
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" className={inter.className}>
+      <body className="min-h-screen bg-white text-black antialiased">
         <AuthProvider>
           {children}
         </AuthProvider>

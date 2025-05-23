@@ -5,9 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle, XCircle, Eye, EyeOff, MoveLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { signIn } from 'next-auth/react';
-import { supabase } from '../lib/supabase';
-import bcrypt from 'bcryptjs';
+import { createClient } from '../lib/supabase';
 
 export default function SignupPage() {
   const [username, setUsername] = useState('');
@@ -21,9 +19,8 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [emailError, setEmailError] = useState(false);
-  const [passwordError, setPasswordError] = useState(false);
   const router = useRouter();
+  const supabase = createClient();
 
   const validateUsername = (value: string) => {
     // Only allow lowercase letters, numbers, and hyphens
@@ -33,7 +30,6 @@ export default function SignupPage() {
 
   const checkUsernameAvailability = async (value: string) => {
     if (!validateUsername(value)) {
-      console.log('Username format invalid:', value);
       setIsValidFormat(false);
       setIsAvailable(null);
       return;
@@ -43,17 +39,13 @@ export default function SignupPage() {
     setIsChecking(true);
 
     try {
-      // First check the users table
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('username')
         .eq('username', value.toLowerCase())
         .maybeSingle();
 
-      if (userError) {
-        throw userError;
-      }
-
+      if (userError) throw userError;
       setIsAvailable(!userData);
     } catch (error) {
       console.error('Error checking username:', error);
@@ -76,33 +68,67 @@ export default function SignupPage() {
     return () => clearTimeout(debounceTimer);
   }, [username]);
 
-  const validateEmail = (email: string) => {
-    const isValid = email.includes('@') && email.includes('.');
-    setEmailError(!isValid && email.length > 0);
-    return isValid;
-  };
+  useEffect(() => {
+    // Check if we have a stored username and user just completed OAuth
+    const checkAndCreateUser = async () => {
+      const storedUsername = localStorage.getItem('pendingUsername');
+      if (!storedUsername) return;
 
-  const validatePassword = (password: string) => {
-    const isValid = password.length >= 6;
-    setPasswordError(!isValid && password.length > 0);
-    return isValid;
-  };
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session?.user) return;
 
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newEmail = e.target.value;
-    setEmail(newEmail);
-    validateEmail(newEmail);
-  };
+      // Check if user record exists
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('username')
+        .eq('id', session.user.id)
+        .single();
 
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newPassword = e.target.value;
-    setPassword(newPassword);
-    validatePassword(newPassword);
-  };
+      if (existingUser) {
+        // User exists, clear storage and redirect
+        localStorage.removeItem('pendingUsername');
+        router.push(`/${existingUser.username}`);
+        return;
+      }
+
+      try {
+        // Create user record with stored username
+        const { error: createError } = await supabase
+          .from('users')
+          .insert({
+            id: session.user.id,
+            email: session.user.email,
+            username: storedUsername,
+          });
+
+        if (createError) throw createError;
+
+        // Clear storage and redirect to profile
+        localStorage.removeItem('pendingUsername');
+        router.push(`/${storedUsername}`);
+      } catch (err: any) {
+        console.error('Error creating user:', err);
+        setError(err.message);
+      }
+    };
+
+    checkAndCreateUser();
+  }, [router]);
+
+  useEffect(() => {
+    // Check if we have a stored username
+    const storedUsername = localStorage.getItem('pendingUsername');
+    if (storedUsername) {
+      setUsername(storedUsername);
+      setShowAccountCreation(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isAvailable && validateUsername(username)) {
+      // Store username before showing account creation
+      localStorage.setItem('pendingUsername', username);
       setShowAccountCreation(true);
     }
   };
@@ -113,252 +139,260 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      if (!validateEmail(email)) {
-        throw new Error('Please enter a valid email address');
+      console.log('Creating account with:', { email, username });
+      
+      // First check if user already exists
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .or(`email.eq.${email},username.eq.${username}`)
+        .single();
+
+      if (existingUser) {
+        throw new Error('User with this email or username already exists');
       }
 
-      if (!validatePassword(password)) {
-        throw new Error('Password must be at least 6 characters long');
-      }
-
-      // Sign up the user using credentials provider
-      const result = await signIn('credentials', {
+      // Sign up with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email.toLowerCase().trim(),
         password: password.trim(),
-        username: username.toLowerCase().trim(),
-        isSignup: true, // Special flag to indicate signup
-        redirect: false,
+        options: {
+          emailRedirectTo: `${window.location.origin}/login?verified=true`,
+          data: {
+            username: username.toLowerCase().trim()
+          }
+        }
       });
 
-      if (result?.error) {
-        throw new Error(result.error);
-      }
-      
-      // Show success message
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('No user returned from auth signup');
+
+      // Create user record
+      const { error: userError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          email: email.toLowerCase().trim(),
+          username: username.toLowerCase().trim(),
+        });
+
+      if (userError) throw userError;
+
       setShowSuccess(true);
     } catch (err: any) {
       console.error('Signup error:', err);
       setError(err.message || 'An error occurred during signup');
-      setShowSuccess(false);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleSocialSignup = async (provider: 'google' | 'github') => {
-    setError(null);
-    setIsLoading(true);
-
     try {
-      await signIn(provider, {
-        callbackUrl: `${window.location.origin}/${username}?success=true`
+      // Store username before OAuth flow
+      if (username) {
+        localStorage.setItem('pendingUsername', username);
+      }
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`
+        }
       });
+
+      if (error) throw error;
     } catch (err: any) {
+      console.error('Social signup error:', err);
       setError(err.message);
-      setShowSuccess(false);
-      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-left px-24">
-      <div className="fixed top-1/2 -translate-y-1/2 w-full max-w-lg">
-        <AnimatePresence mode="wait">
-          {!showAccountCreation && !showSuccess ? (
-            <motion.div
-              key="username-selection"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              transition={{ duration: 0.6 }}
-            >
-              <div className="text-left space-y-4 mb-28">
-                <h1 className="text-4xl font-bold">
-                  First, claim your Super link! 🚀
-                </h1>
-                <p className="text-gray-500 text-lg">
-                  The good ones are still available!
-                </p>
-              </div>
+    <div className="min-h-screen bg-white flex flex-col items-left px-24 pt-32">
+      <AnimatePresence mode="wait">
+        {!showAccountCreation && !showSuccess ? (
+          <motion.div
+            className="w-full max-w-lg"
+            initial={{ opacity: 0, x: 100 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          >
+            <div className="text-left">
+              <Link
+                href="/"
+                className="block mb-4 text-gray-500 hover:text-black transition-colors"
+              >
+                <MoveLeft size={24} />
+              </Link>
+              <h1 className="text-4xl font-bold mb-4">
+                First, claim your Super link! 🚀
+              </h1>
+              <p className="text-gray-500 text-lg mb-24">
+                The good ones are still available!
+              </p>
+            </div>
 
-              <form onSubmit={handleSubmit} className="relative">
-                <div className="max-w-md">
-                  <div>
-                    <div className="flex items-center bg-[#f6f6f6] rounded-xl overflow-hidden">
-                      <span className="pl-4 text-gray-500">superfolio.me/</span>
-                      <input
-                        type="text"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value.toLowerCase())}
-                        placeholder="username"
-                        className="flex-1 bg-transparent py-4 px-1 outline-none"
-                        maxLength={30}
-                      />
-                      {isChecking ? (
-                        <div className="animate-spin rounded-xl h-5 w-5 border-2 border-blue-500 border-t-transparent mx-4" />
-                      ) : isAvailable && username.length >= 1 ? (
-                        <CheckCircle className="text-green-500 w-5 h-5 mx-4" />
-                      ) : null}
-                    </div>
-                    
-                    <div className="h-8 mt-2">
-                      {!isValidFormat && username.length > 0 && (
-                        <motion.p 
-                          initial={{ opacity: 0, x: 0 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          className="text-red-500 text-sm"
-                        >
-                          Username must be 3-30 characters and can only contain a-z, 0-9, and hyphens
-                        </motion.p>
-                      )}
-                      
-                      {isValidFormat && !isAvailable && username.length >= 1 && (
-                        <motion.p 
-                          initial={{ opacity: 0, x: 0 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          className="text-red-500 text-sm"
-                        >
-                          Username is taken
-                        </motion.p>
-                      )}
-                    </div>
+            <form onSubmit={handleSubmit} className="relative">
+              <div className="max-w-md">
+                <div>
+                  <div className="flex items-center bg-[#f6f6f6] rounded-xl overflow-hidden">
+                    <span className="pl-4 text-gray-500">superfolio.me/</span>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                      placeholder="username"
+                      className="flex-1 bg-transparent py-4 px-1 outline-none"
+                      maxLength={30}
+                    />
+                    {isChecking ? (
+                      <div className="animate-spin rounded-xl h-5 w-5 border-2 border-blue-500 border-t-transparent mx-4" />
+                    ) : isAvailable && username.length >= 1 ? (
+                      <CheckCircle className="text-green-500 w-5 h-5 mx-4" />
+                    ) : null}
                   </div>
-
-                  {isAvailable && username.length >= 1 && (
-                    <motion.button
-                      type="submit"
-                      initial={{ opacity: 0, x: 0 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute w-[448px] -mt-4 bg-[#0085ff] text-white font-bold py-4 px-2 rounded-xl
-                               transition-all duration-300 hover:bg-[#2999ff] active:transform 
-                               active:scale-95 hover:shadow-lg"
-                    >
-                      Grab my link
-                    </motion.button>
-                  )}
-                </div>
-
-                <motion.div 
-                  className="mt-20"
-                  initial={{ opacity: 0, x: 50 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.6, delay: 0.4 }}
-                >
-                  <Link
-                    href="/login"
-                    className="block text-left text-sm text-[#000000]"
-                  >
-                    or log in
-                  </Link>
-                </motion.div>
-              </form>
-            </motion.div>
-          ) : showAccountCreation && !showSuccess ? (
-            <motion.div
-              key="account-creation"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              transition={{ duration: 0.6 }}
-            >
-              <div className="text-left mb-16 flex flex-col">
-                <div className="mb-0">
-                  <button
-                    type="button"
-                    onClick={() => setShowAccountCreation(false)}
-                    className="text-gray-500 hover:text-black transition-colors"
-                  >
-                    <MoveLeft size={24} />
-                  </button>
-                </div>
-                <div className="flex flex-col gap-y-4">
-                  <p className="text-gray-500 text-lg flex items-center">
-                    <span className="text-black">superfolio.me/</span>
-                    <span className="text-black">{username}</span>
-                    <span className="text-black ml-1">is yours!</span>
-                  </p>
-                  <h1 className="text-4xl font-bold">
-                    Now, create your account.
-                  </h1>
-                </div>
-              </div>
-
-              <form onSubmit={handleCreateAccount} className="relative">
-                <div className="max-w-md mb-20">
-                  <div className="flex gap-4 mb-6">
-                    <div className="flex-1">
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={handleEmailChange}
-                        placeholder="email"
-                        className="w-full text-sm bg-[#f6f6f6] py-4 px-4 rounded-xl outline-none"
-                      />
-                    </div>
-                    <div className="flex-1 relative">
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={handlePasswordChange}
-                        placeholder="password"
-                        className="w-full text-sm bg-[#f6f6f6] py-4 px-4 rounded-xl outline-none pr-12"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500"
+                  
+                  <div className="h-8 mt-2">
+                    {!isValidFormat && username.length > 0 && (
+                      <motion.p 
+                        initial={{ opacity: 0, x: 0 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="text-red-500 text-sm"
                       >
-                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                      </button>
-                    </div>
+                        Username must be 3-30 characters and can only contain a-z, 0-9, and hyphens
+                      </motion.p>
+                    )}
+                    
+                    {isValidFormat && !isAvailable && username.length >= 1 && (
+                      <motion.p 
+                        initial={{ opacity: 0, x: 0 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="text-red-500 text-sm"
+                      >
+                        Username is taken
+                      </motion.p>
+                    )}
                   </div>
+                </div>
 
-                  <div className="relative h-[104px]">
-                    <AnimatePresence>
-                      {email.length === 0 && !emailError && !passwordError && (
+                {isAvailable && username.length >= 1 && (
+                  <motion.button
+                    type="submit"
+                    initial={{ opacity: 0, x: 0 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute w-[448px] -mt-4 bg-[#0085ff] text-white font-bold py-4 px-2 rounded-xl
+                             transition-all duration-300 hover:bg-[#2999ff] active:transform 
+                             active:scale-95 hover:shadow-lg"
+                  >
+                    Grab my link
+                  </motion.button>
+                )}
+              </div>
+
+              <motion.div 
+                className="mt-20"
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+              >
+                <Link
+                  href="/login"
+                  className="block text-left text-sm text-[#000000]"
+                >
+                  or log in
+                </Link>
+              </motion.div>
+            </form>
+          </motion.div>
+        ) : showAccountCreation && !showSuccess ? (
+          <motion.div
+            className="w-full max-w-lg"
+            initial={{ opacity: 0, x: 100 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          >
+            <div className="text-left mb-16 flex flex-col">
+              <div className="mb-0">
+                <button
+                  type="button"
+                  onClick={() => setShowAccountCreation(false)}
+                  className="text-gray-500 hover:text-black transition-colors"
+                >
+                  <MoveLeft size={24} />
+                </button>
+              </div>
+              <div className="flex flex-col gap-y-4">
+                <p className="text-gray-500 text-lg flex items-center">
+                  <span className="text-black">superfolio.me/</span>
+                  <span className="text-black">{username}</span>
+                  <span className="text-black ml-1">is yours!</span>
+                </p>
+                <h1 className="text-4xl font-bold">
+                  Now, create your account.
+                </h1>
+              </div>
+            </div>
+
+            <form onSubmit={handleCreateAccount} className="relative">
+              <div className="max-w-md mb-20">
+                <div className="flex gap-4 mb-6">
+                  <div className="flex-1">
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="email"
+                      className="w-full text-sm bg-[#f6f6f6] py-4 px-4 rounded-xl outline-none"
+                    />
+                  </div>
+                  <div className="flex-1 relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="password"
+                      className="w-full text-sm bg-[#f6f6f6] py-4 px-4 rounded-xl outline-none pr-12"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500"
+                    >
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="h-[120px]">
+                  <div className="h-[40px] relative">
+                    <AnimatePresence mode="wait">
+                      {email.length === 0 && (
                         <motion.div
                           key="or-text"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="text-left font-bold my-6"
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          transition={{ duration: 0.2 }}
+                          className="text-left font-bold absolute inset-0"
                         >
                           OR
                         </motion.div>
                       )}
-                      {emailError && (
-                        <motion.div
-                          key="email-error"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="text-left text-red-500 my-6"
-                        >
-                          Please enter a valid email address
-                        </motion.div>
-                      )}
-                      {passwordError && !emailError && (
-                        <motion.div
-                          key="password-error"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="text-left text-red-500 my-6"
-                        >
-                          Password must be at least 6 characters long
-                        </motion.div>
-                      )}
                     </AnimatePresence>
+                  </div>
 
+                  <div className="relative h-[52px] mt-4">
                     <AnimatePresence mode="wait">
-                      {email.length === 0 && !emailError && !passwordError ? (
+                      {email.length === 0 ? (
                         <motion.div
                           key="social-buttons"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 1 }}
-                          className="flex gap-4"
+                          className="flex gap-4 absolute inset-0"
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          transition={{ duration: 0.2 }}
                         >
                           <button
                             type="button"
@@ -386,18 +420,19 @@ export default function SignupPage() {
                       ) : (
                         <motion.div
                           key="create-account"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 1 }}
-                          className="flex gap-4 absolute bottom-0 left-0 right-0"
+                          className="absolute inset-0"
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          transition={{ duration: 0.2 }}
                         >
                           <button
                             type="submit"
                             disabled={isLoading || !email || !password}
-                            className="flex-1 bg-[#0085ff] text-white font-bold py-4 px-2 rounded-xl
+                            className="w-full bg-[#0085ff] text-white text-sm font-bold py-4 px-2 rounded-xl
                                      transition-all duration-300 hover:bg-[#2999ff] active:transform 
                                      active:scale-95 hover:shadow-lg flex items-center justify-center
-                                     disabled:opacity-100 disabled:cursor-not-allowed"
+                                     disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {isLoading ? 'Creating Account...' : 'Create Account'}
                           </button>
@@ -406,28 +441,28 @@ export default function SignupPage() {
                     </AnimatePresence>
                   </div>
                 </div>
+              </div>
 
-                {error && (
-                  <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="text-red-500 text-sm mt-2"
-                  >
-                    {error}
-                  </motion.p>
-                )}
-              </form>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="success-view"
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              transition={{ duration: 0.6 }}
-              className="text-left"
-            >
-              <div className="flex flex-col gap-y-8 mb-28">
+              {error && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-red-500 text-sm mt-2"
+                >
+                  {error}
+                </motion.p>
+              )}
+            </form>
+          </motion.div>
+        ) : (
+          <motion.div
+            className="w-full max-w-lg"
+            initial={{ opacity: 0, x: 100 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          >
+            <div className="text-left">
+              <div className="flex flex-col gap-y-8">
                 <div className="flex items-center gap-x-3">
                   <h1 className="text-4xl font-bold">Almost there!</h1>
                   <CheckCircle className="text-green-500 w-8 h-8" />
@@ -452,10 +487,10 @@ export default function SignupPage() {
                   Go to Login
                 </Link>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 } 

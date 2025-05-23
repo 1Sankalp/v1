@@ -30,6 +30,7 @@
   "dependencies": {
     "@auth/supabase-adapter": "^1.9.1",
     "@prisma/client": "^5.10.2",
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.4",
     "@types/bcryptjs": "^2.4.6",
