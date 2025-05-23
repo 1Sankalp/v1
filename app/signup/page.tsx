@@ -157,7 +157,7 @@ export default function SignupPage() {
         email: email.toLowerCase().trim(),
         password: password.trim(),
         options: {
-          emailRedirectTo: `${window.location.origin}/login?verified=true`,
+          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/auth/callback`,
           data: {
             username: username.toLowerCase().trim()
           }
@@ -197,7 +197,7 @@ export default function SignupPage() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`
+          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/auth/callback`
         }
       });
 

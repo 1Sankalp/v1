@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
+  const next = requestUrl.searchParams.get('next');
 
   if (code) {
     const cookieStore = cookies();
@@ -28,8 +29,8 @@ export async function GET(request: Request) {
     
     try {
       await supabase.auth.exchangeCodeForSession(code);
-      // After successful verification, redirect to login with success message
-      return NextResponse.redirect(`${requestUrl.origin}/login?verified=true`);
+      // After successful verification, redirect to next URL or login with success message
+      return NextResponse.redirect(`${requestUrl.origin}${next || '/login?verified=true'}`);
     } catch (error) {
       console.error('Error in auth callback:', error);
       return NextResponse.redirect(

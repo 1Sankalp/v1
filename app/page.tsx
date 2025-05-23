@@ -1,9 +1,23 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function Home() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    // Check for auth code in URL
+    const code = searchParams?.get('code');
+    if (code) {
+      // Redirect to auth callback with the code
+      router.push(`/auth/callback?code=${code}`);
+      return;
+    }
+  }, [searchParams, router]);
+
   const handleNavigation = (path: string) => {
     console.log('Navigating to:', path);
     window.location.href = path;
