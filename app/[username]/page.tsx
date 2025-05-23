@@ -1528,35 +1528,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
       console.log('Fetching profile for:', params.username);
       setLoading(true);
       try {
-        // First try to get data from sessionStorage (for unauthorized views after logout)
-        const tempData = sessionStorage.getItem('tempProfileData');
-        if (tempData) {
-          try {
-            const parsedData = JSON.parse(tempData);
-            console.log('Found temp profile data:', parsedData);
-            
-            // Only use the temp data if it matches the current username
-            if (parsedData.username === params.username) {
-              console.log('Using temp profile data for immediate logout view');
-              setProfile(parsedData.profile);
-              setName(parsedData.name || '');
-              setBio(parsedData.bio || '');
-              setAvatar(parsedData.avatar || null);
-              setProjects(parsedData.projects || []);
-              setSocialLinks(parsedData.socialLinks || []);
-              setIsOwnProfile(false);
-              
-              setLoading(false);
-              setMounted(true);
-              return;
-            }
-          } catch (err) {
-            console.error('Error parsing temp profile data:', err);
-            sessionStorage.removeItem('tempProfileData');
-          }
-        }
-
-        // If no temp data or wrong username, get the user data from Supabase
+        // Get the user data from Supabase first
         const { data: userData, error: userError } = await supabase
           .from('users')
           .select('*')
@@ -1580,49 +1552,76 @@ export default function ProfilePage({ params }: { params: { username: string } }
                        session?.user?.user_metadata?.username === params.username;
         setIsOwnProfile(isOwner);
 
-        // Fetch projects
-        const { data: projectsData, error: projectsError } = await supabase
-          .from('projects')
-          .select('*')
-          .eq('user_id', userData.id)
-          .order('created_at', { ascending: false });
+        let finalProjects = [];
+        let finalSocialLinks = [];
 
-        if (projectsError) throw projectsError;
-        console.log('Found projects:', projectsData);
+        // Try to get data from sessionStorage only if we just logged out
+        const tempData = sessionStorage.getItem('tempProfileData');
+        if (tempData) {
+          try {
+            const parsedData = JSON.parse(tempData);
+            if (parsedData.username === params.username) {
+              console.log('Using cached projects and social links');
+              finalProjects = parsedData.projects || [];
+              finalSocialLinks = parsedData.socialLinks || [];
+              sessionStorage.removeItem('tempProfileData'); // Clear after using
+            }
+          } catch (err) {
+            console.error('Error parsing temp profile data:', err);
+            sessionStorage.removeItem('tempProfileData');
+          }
+        }
 
-        // Transform and set projects
-        const transformedProjects = await Promise.all((projectsData || []).map(async p => ({
-          id: p.id,
-          title: p.title || '',
-          description: p.description || '',
-          projectLink: p.link || '',
-          githubLink: p.github_link || undefined,
-          otherLink: p.other_link || undefined,
-          projectFavicon: p.image_url || await getFavicon(p.link),
-          githubFavicon: p.github_link ? await getFavicon(p.github_link) : undefined,
-          otherFavicon: p.other_link ? await getFavicon(p.other_link) : undefined
-        })));
-        console.log('Setting projects:', transformedProjects);
-        setProjects(transformedProjects);
+        // If no cached data, fetch from Supabase
+        if (finalProjects.length === 0) {
+          console.log('Fetching projects from Supabase');
+          const { data: projectsData, error: projectsError } = await supabase
+            .from('projects')
+            .select('*')
+            .eq('user_id', userData.id)
+            .order('created_at', { ascending: false });
 
-        // Fetch social links
-        const { data: socialsData, error: socialsError } = await supabase
-          .from('social_links')
-          .select('*')
-          .eq('user_id', userData.id);
+          if (projectsError) throw projectsError;
+          console.log('Found projects:', projectsData);
 
-        if (socialsError) throw socialsError;
-        console.log('Found social links:', socialsData);
+          // Transform projects
+          finalProjects = await Promise.all((projectsData || []).map(async p => ({
+            id: p.id,
+            title: p.title || '',
+            description: p.description || '',
+            projectLink: p.link || '',
+            githubLink: p.github_link || undefined,
+            otherLink: p.other_link || undefined,
+            projectFavicon: p.image_url || await getFavicon(p.link),
+            githubFavicon: p.github_link ? await getFavicon(p.github_link) : undefined,
+            otherFavicon: p.other_link ? await getFavicon(p.other_link) : undefined
+          })));
+        }
 
-        // Transform and set social links
-        const transformedSocials = await Promise.all(
-          (socialsData || []).map(async (link: { url: string }) => ({
-            url: link.url,
-            favicon: await getFavicon(link.url)
-          }))
-        );
-        console.log('Setting social links:', transformedSocials);
-        setSocialLinks(transformedSocials);
+        // If no cached social links, fetch from Supabase
+        if (finalSocialLinks.length === 0) {
+          console.log('Fetching social links from Supabase');
+          const { data: socialsData, error: socialsError } = await supabase
+            .from('social_links')
+            .select('*')
+            .eq('user_id', userData.id);
+
+          if (socialsError) throw socialsError;
+          console.log('Found social links:', socialsData);
+
+          // Transform social links
+          finalSocialLinks = await Promise.all(
+            (socialsData || []).map(async (link: { url: string }) => ({
+              url: link.url,
+              favicon: await getFavicon(link.url)
+            }))
+          );
+        }
+
+        console.log('Setting final projects:', finalProjects);
+        console.log('Setting final social links:', finalSocialLinks);
+        setProjects(finalProjects);
+        setSocialLinks(finalSocialLinks);
 
         setError(null);
       } catch (err) {
