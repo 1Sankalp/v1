@@ -1554,8 +1554,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
 
         // Check if user is owner of profile
         const { data: { session } } = await supabase.auth.getSession();
-        const isOwner = session?.user?.id === userData.id || 
-                       session?.user?.user_metadata?.username === params.username;
+        const isOwner = session?.user?.id === userData.id;
         setIsOwnProfile(isOwner);
 
         // Always fetch fresh data for projects
@@ -1615,6 +1614,10 @@ export default function ProfilePage({ params }: { params: { username: string } }
       } catch (err) {
         console.error('Error fetching profile:', err);
         setError(err instanceof Error ? err.message : 'Failed to load profile');
+        // Reset states on error
+        setProfile(null);
+        setProjects([]);
+        setSocialLinks([]);
       } finally {
         setLoading(false);
         setMounted(true);
