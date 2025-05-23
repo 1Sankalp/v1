@@ -152,7 +152,7 @@ export default function SignupPage() {
         throw new Error('User with this email or username already exists');
       }
 
-      // Sign up with Supabase Auth
+      // Sign up with Supabase Auth 
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email.toLowerCase().trim(),
         password: password.trim(),
