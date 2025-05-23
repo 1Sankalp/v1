@@ -614,27 +614,38 @@ export default function ProfilePage({ params }: { params: { username: string } }
   }, []);
 
   // Update saveChanges function to save to Supabase
-  const saveChanges = debounce(async (data: { name?: string; bio?: string; avatar?: string }) => {
+  const saveChanges = useMemo(() => debounce(async (data: { name?: string; bio?: string; avatar?: string }) => {
     if (!profile) return;
     
     showSavingIndicator();
     
     try {
+      // First update the database
       const { error } = await supabase
         .from('users')
         .update({
-          name: data.name !== undefined ? data.name : profile.name,
-          bio: data.bio !== undefined ? data.bio : profile.bio,
-          avatar_url: data.avatar !== undefined ? data.avatar : profile.avatar_url,
+          name: data.name !== undefined ? data.name : name,
+          bio: data.bio !== undefined ? data.bio : bio,
+          avatar_url: data.avatar !== undefined ? data.avatar : avatar,
           updated_at: new Date().toISOString()
         })
         .eq('id', profile.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error saving to database:', error);
+        throw error;
+      }
+
+      // If database update successful, update local state
+      if (data.name !== undefined) setName(data.name);
+      if (data.bio !== undefined) setBio(data.bio);
+      if (data.avatar !== undefined) setAvatar(data.avatar);
+      
+      console.log('Successfully saved changes:', data);
     } catch (err) {
       console.error('Error saving changes:', err);
     }
-  }, 500);
+  }, 500), [profile, name, bio, avatar, supabase, showSavingIndicator]);
 
   // Update handlers to show saving indicator
   const handleNameChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
