@@ -10,19 +10,7 @@ import PortfolioSection from '../components/PortfolioSection';
 import SocialLinks from '../components/SocialLinks';
 import Link from 'next/link';
 import { Settings2, Trash2, X, Pencil, GripHorizontal, Plus } from 'lucide-react';
-
-// Add SavingIndicator component at the top level
-const SavingIndicator = memo(() => (
-  <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
-    className="flex items-center gap-2 text-gray-500"
-  >
-    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500" />
-    <span className="text-sm">Saving</span>
-  </motion.div>
-));
+import { SavingIndicator } from '../components/SavingIndicator';
 
 // Project interface
 interface Project {
@@ -1643,6 +1631,20 @@ export default function ProfilePage({ params }: { params: { username: string } }
     window.location.href = '/login';
   };
 
+  // Add state for logged-in user's username
+  const [loggedInUsername, setLoggedInUsername] = useState<string | null>(null);
+
+  // Add effect to check logged-in user
+  useEffect(() => {
+    const checkLoggedInUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.user_metadata?.username) {
+        setLoggedInUsername(session.user.user_metadata.username);
+      }
+    };
+    checkLoggedInUser();
+  }, []);
+
     return (
     <div className="h-screen bg-white p-8 overflow-hidden pt-12 px-12">
       {loading ? (
@@ -1824,7 +1826,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
 
       {/* Settings, Saving Indicator and Logout */}
       <div className="absolute top-4 right-12 flex items-center gap-4">
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {isSaving && isOwnProfile && <SavingIndicator />}
         </AnimatePresence>
         {isOwnProfile ? (
@@ -1845,13 +1847,26 @@ export default function ProfilePage({ params }: { params: { username: string } }
             </button>
           </>
         ) : (
-          <Link
-            href="/login"
-            onClick={handleLoginClick}
-            className="text-xs text-gray-500 hover:text-black transition-colors px-2 py-1 rounded-lg border border-gray-200"
-          >
-            log in
-          </Link>
+          <div className="flex items-center gap-4">
+            {/* Show My Superfolio link if user is logged in but viewing another profile */}
+            {loggedInUsername && (
+              <Link
+                href={`/${loggedInUsername}`}
+                className="text-xs text-gray-500 hover:text-black transition-colors px-2 py-1 rounded-lg border border-gray-200"
+              >
+                My Superfolio
+              </Link>
+            )}
+            {!loggedInUsername && (
+              <Link
+                href="/login"
+                onClick={handleLoginClick}
+                className="text-xs text-gray-500 hover:text-black transition-colors px-2 py-1 rounded-lg border border-gray-200"
+              >
+                log in
+              </Link>
+            )}
+          </div>
         )}
       </div>
 
