@@ -706,24 +706,23 @@ export default function ProfilePage({ params }: { params: { username: string } }
 
   const handleLogout = async () => {
     try {
-      // Save any pending changes before logout
-      if (profile) {
-        await supabase
-          .from('users')
-          .update({
-            name,
-            bio,
-            avatar_url: avatar,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', profile.id);
-      }
+      // Store current profile data in sessionStorage BEFORE any auth changes
+      const tempData = {
+        projects: projects || [],
+        socialLinks: socialLinks || [],
+        profile,
+        name,
+        bio,
+        avatar
+      };
+      console.log('Storing temp profile data before logout:', tempData);
+      sessionStorage.setItem('tempProfileData', JSON.stringify(tempData));
       
       // Sign out from Supabase
       await supabase.auth.signOut();
       
-      // Don't redirect - AuthProvider will handle the navigation
-      // The page will refresh and show the unauthorized view
+      // Force an immediate page refresh to show logged out state
+      window.location.href = `/${params.username}`;
       
     } catch (err) {
       console.error('Error during logout:', err);
@@ -1405,7 +1404,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
       if (typeof document === 'undefined' || !document.head) return;
 
       // Safely remove existing favicons
-      const links = document.head.querySelectorAll("link[rel*='icon']");
+      const links = Array.from(document.head.querySelectorAll("link[rel*='icon']"));
       links.forEach(link => {
         try {
           if (link && link.parentNode) {
@@ -1421,9 +1420,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
         const newLink = document.createElement('link');
         newLink.rel = 'icon';
         newLink.href = url;
-        if (document.head) {
-          document.head.appendChild(newLink);
-        }
+        document.head?.appendChild(newLink);
       } catch (err) {
         console.warn('Error adding new favicon:', err);
       }
@@ -1530,80 +1527,101 @@ export default function ProfilePage({ params }: { params: { username: string } }
       console.log('Fetching profile for:', params.username);
       setLoading(true);
       try {
-        // Get Supabase session
-        const { data: { session: supaSession } } = await supabase.auth.getSession();
-        console.log('Supabase session in fetch:', supaSession);
+        // First try to get data from sessionStorage (for unauthorized views after logout)
+        const tempData = sessionStorage.getItem('tempProfileData');
+        if (tempData) {
+          try {
+            const parsedData = JSON.parse(tempData);
+            console.log('Found temp profile data:', parsedData);
+            
+            // Only use the temp data if it matches the current username
+            if (parsedData.profile?.username === params.username) {
+              // Set all the profile data from sessionStorage
+              setProfile(parsedData.profile);
+              setName(parsedData.name || '');
+              setBio(parsedData.bio || '');
+              setAvatar(parsedData.avatar || null);
+              setProjects(parsedData.projects || []);
+              setSocialLinks(parsedData.socialLinks || []);
+              
+              // Don't remove the data yet - keep it for page refreshes
+              setLoading(false);
+              setMounted(true);
+              return;
+            }
+          } catch (err) {
+            console.error('Error parsing temp profile data:', err);
+            sessionStorage.removeItem('tempProfileData');
+          }
+        }
 
-        // Fetch user profile
+        // If no temp data or wrong username, get the user data from Supabase
         const { data: userData, error: userError } = await supabase
           .from('users')
           .select('*')
           .eq('username', params.username)
           .single();
 
-        console.log('User data:', userData);
-        console.log('User error:', userError);
-
         if (userError) throw userError;
         if (!userData) throw new Error('User not found');
 
-        // Double check ownership
-        if (supaSession?.user?.user_metadata?.username === params.username ||
-            supaSession?.user?.id === userData.id) {
-          console.log('Setting isOwnProfile to true - matched user data');
-          setIsOwnProfile(true);
-        }
+        // Set basic profile data
+        setProfile(userData);
+        setName(userData.name || '');
+        setBio(userData.bio || '');
+        setAvatar(userData.avatar_url || null);
 
-        // Fetch user's projects
-        const { data: projectsData, error: projectsError } = await supabase
+        // Check if user is owner of profile
+        const { data: { session } } = await supabase.auth.getSession();
+        const isOwner = session?.user?.id === userData.id || 
+                       session?.user?.user_metadata?.username === params.username;
+        setIsOwnProfile(isOwner);
+
+        // Fetch projects in parallel
+        const projectsPromise = supabase
           .from('projects')
           .select('*')
           .eq('user_id', userData.id)
           .order('created_at', { ascending: false });
 
-        console.log('Projects data:', projectsData);
-        console.log('Projects error:', projectsError);
-
-        if (projectsError) throw projectsError;
-
-        // Fetch user's social links
-        const { data: socialsData, error: socialsError } = await supabase
+        // Fetch social links in parallel
+        const socialsPromise = supabase
           .from('social_links')
           .select('*')
           .eq('user_id', userData.id);
 
-        console.log('Social links data:', socialsData);
-        console.log('Social links error:', socialsError);
+        // Wait for both queries to complete
+        const [projectsResult, socialsResult] = await Promise.all([
+          projectsPromise,
+          socialsPromise
+        ]);
 
-        if (socialsError) throw socialsError;
+        if (projectsResult.error) throw projectsResult.error;
+        if (socialsResult.error) throw socialsResult.error;
 
-        // Update all state values
-        setProfile(userData);
-        setName(userData.name || '');
-        setBio(userData.bio || '');
-        setAvatar(userData.avatar_url || null);
-        
-        // Transform projects data to match Project interface
-        const transformedProjects = await Promise.all(projectsData.map(async p => ({
+        // Transform and set projects
+        const transformedProjects = await Promise.all((projectsResult.data || []).map(async p => ({
           id: p.id,
-          title: p.title,
-          description: p.description,
-          projectLink: p.link,
-          githubLink: p.github_link,
-          otherLink: p.other_link,
+          title: p.title || '',
+          description: p.description || '',
+          projectLink: p.link || '',
+          githubLink: p.github_link || undefined,
+          otherLink: p.other_link || undefined,
           projectFavicon: p.image_url || await getFavicon(p.link),
           githubFavicon: p.github_link ? await getFavicon(p.github_link) : undefined,
           otherFavicon: p.other_link ? await getFavicon(p.other_link) : undefined
         })));
+        console.log('Setting projects:', transformedProjects);
         setProjects(transformedProjects);
 
-        // Transform social links data
+        // Transform and set social links
         const transformedSocials = await Promise.all(
-          socialsData.map(async (link) => ({
+          (socialsResult.data || []).map(async (link) => ({
             url: link.url,
             favicon: await getFavicon(link.url)
           }))
         );
+        console.log('Setting social links:', transformedSocials);
         setSocialLinks(transformedSocials);
 
         setError(null);
@@ -1618,6 +1636,17 @@ export default function ProfilePage({ params }: { params: { username: string } }
 
     fetchProfile();
   }, [params.username]);
+
+  // Add a handler for login navigation
+  const handleLoginClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // Restore default favicon before navigation
+    if (defaultFaviconRef.current) {
+      setFavicon(defaultFaviconRef.current);
+    }
+    // Use router for navigation
+    router.push('/login');
+  };
 
     return (
     <div className="h-screen bg-white p-8 overflow-hidden pt-12 px-12">
@@ -1823,7 +1852,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
         ) : (
           <Link
             href="/login"
-            className="text-xs text-gray-500 hover:text-black transition-colors px-4 py-2 rounded-lg border border-gray-200"
+            onClick={handleLoginClick}
+            className="text-xs text-gray-500 hover:text-black transition-colors px-2 py-1 rounded-lg border border-gray-200"
           >
             log in
           </Link>

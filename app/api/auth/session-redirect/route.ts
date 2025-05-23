@@ -1,5 +1,4 @@
 import { NextRequest } from 'next/server';
-import { auth } from '@/app/lib/auth';
 import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
@@ -11,19 +10,29 @@ const supabase = createClient(
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
+    // Get the current path
+    const currentPath = new URL(request.url).pathname;
     
-    // If no session or no user, redirect to login
+    // If we're already on a profile page (path has exactly one segment), don't redirect
+    if (currentPath.split('/').filter(Boolean).length === 1) {
+      return new Response(null, { status: 200 });
+    }
+
+    // Get the session
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    // If no session or no user, redirect to home
     if (!session?.user) {
-      return Response.redirect(new URL('/login', request.url));
+      return Response.redirect(new URL('/', request.url));
     }
 
-    // Try to get username from session
-    if (session.user.username) {
-      return Response.redirect(new URL(`/${session.user.username}`, request.url));
+    // Try to get username from user metadata
+    const username = session.user.user_metadata?.username;
+    if (username) {
+      return Response.redirect(new URL(`/${username}`, request.url));
     }
 
-    // If no username in session, try to get it from database
+    // If no username in metadata, try to get it from database
     const { data: userData } = await supabase
       .from('users')
       .select('username')
@@ -34,10 +43,10 @@ export async function GET(request: NextRequest) {
       return Response.redirect(new URL(`/${userData.username}`, request.url));
     }
 
-    // If still no username, redirect to login with error
-    return Response.redirect(new URL('/login?error=no_username', request.url));
+    // If still no username, redirect to home
+    return Response.redirect(new URL('/', request.url));
   } catch (error) {
     console.error('Session redirect error:', error);
-    return Response.redirect(new URL('/login', request.url));
+    return Response.redirect(new URL('/', request.url));
   }
 } 
