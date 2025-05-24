@@ -565,13 +565,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
   // Social links modal states
   const [showSocialLinks, setShowSocialLinks] = useState(false);
   const [socialLinks, setSocialLinks] = useState<Array<{ url: string; favicon: string }>>([]);
-  const [socialInputs, setSocialInputs] = useState<Array<{ url: string; favicon: string; isLoading?: boolean }>>([
-    { url: '', favicon: '', isLoading: false },
-    { url: '', favicon: '', isLoading: false },
-    { url: '', favicon: '', isLoading: false },
-    { url: '', favicon: '', isLoading: false },
-    { url: '', favicon: '', isLoading: false }
-  ]);
+  const [socialInputs, setSocialInputs] = useState<Array<{ url: string; favicon: string; isLoading?: boolean }>>([]);
   
   // Add validation states
   const [projectLinkError, setProjectLinkError] = useState('');
@@ -1363,15 +1357,19 @@ export default function ProfilePage({ params }: { params: { username: string } }
             validSocials.map(social => ({
               user_id: profile.id,
               url: social.url,
-              platform: 'website' as const, // Type assertion to match the enum
+              platform: 'website' as const,
             }))
           );
 
         if (insertError) throw insertError;
+
+        // Update local state with the new social links
+        setSocialLinks(validSocials);
+      } else {
+        // If no valid socials, clear the local state
+        setSocialLinks([]);
       }
 
-      // Update local state
-      setSocialLinks(validSocials);
       setShowSocialLinks(false);
       showSavingIndicator();
     } catch (error: any) {
@@ -1446,20 +1444,28 @@ export default function ProfilePage({ params }: { params: { username: string } }
         const { data: socialsData, error: socialsError } = await supabasePublic
           .from('social_links')
           .select('*')
-          .eq('user_id', userData.id);
+          .eq('user_id', userData.id)
+          .order('created_at', { ascending: true });
 
         if (socialsError) throw socialsError;
 
-        // Transform social links
+        // Transform social links and ensure we get favicons
         const finalSocialLinks = await Promise.all(
-          (socialsData || []).map(async (link: { url: string }) => ({
-            url: link.url,
-            favicon: await getFavicon(link.url)
-          }))
+          (socialsData || []).map(async (link: { url: string }) => {
+            const favicon = await getFavicon(link.url);
+            return {
+              url: link.url,
+              favicon: favicon || ''
+            };
+          })
         );
 
         setProjects(finalProjects);
         setSocialLinks(finalSocialLinks);
+
+        // Initialize socialInputs with empty slots
+        setSocialInputs(Array(5).fill({ url: '', favicon: '', isLoading: false }));
+
         setError(null);
       } catch (err) {
         console.error('Error initializing profile:', err);
@@ -1467,6 +1473,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
         setProfile(null);
         setProjects([]);
         setSocialLinks([]);
+        setSocialInputs(Array(5).fill({ url: '', favicon: '', isLoading: false }));
       } finally {
         setLoading(false);
         setInitialized(true);
@@ -1504,6 +1511,25 @@ export default function ProfilePage({ params }: { params: { username: string } }
     e.preventDefault();
     window.location.href = '/login';
   };
+
+  // Add effect to sync socialLinks with socialInputs when modal opens
+  useEffect(() => {
+    if (showSocialLinks) {
+      // Create an array of 5 empty inputs
+      const newInputs = Array(5).fill({ url: '', favicon: '', isLoading: false });
+      
+      // Fill in existing social links
+      socialLinks.forEach((link, index) => {
+        newInputs[index] = {
+          url: link.url,
+          favicon: link.favicon,
+          isLoading: false
+        };
+      });
+      
+      setSocialInputs(newInputs);
+    }
+  }, [showSocialLinks, socialLinks]);
 
   // Only render content after mounting
   if (!mounted) {
