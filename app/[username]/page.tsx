@@ -1550,6 +1550,25 @@ export default function ProfilePage({ params }: { params: { username: string } }
     }
   }, [showSocialLinks, socialLinks]);
 
+  // Add effect to calculate initial heights when profile loads
+  useEffect(() => {
+    if (!profile) return;
+
+    // Calculate initial heights after a short delay to ensure content is rendered
+    const timer = setTimeout(() => {
+      if (nameTextareaRef.current) {
+        nameTextareaRef.current.style.height = 'auto';
+        nameTextareaRef.current.style.height = `${nameTextareaRef.current.scrollHeight}px`;
+      }
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [profile, name, bio]);
+
   // Only render content after mounting
   if (!mounted) {
     return null;
@@ -1618,40 +1637,40 @@ export default function ProfilePage({ params }: { params: { username: string } }
                   </div>
 
                   {/* Name Input */}
-                  <div>
-                    <textarea
-                      ref={nameTextareaRef}
-                      value={name}
-                      onChange={handleNameChange}
-                      placeholder={isOwnProfile ? "Your name" : ""}
-                      rows={1}
-                      readOnly={!isOwnProfile}
-                      className={`text-3xl font-bold w-full bg-transparent border-none outline-none resize-none overflow-hidden
-                               placeholder:text-gray-300 ${!isOwnProfile ? 'cursor-default' : ''}`}
-                      style={{ 
-                        minHeight: '1.2em',
-                        height: 'auto'
-                      }}
-                    />
+                  <div className="w-full">
+                    <pre className="w-full font-sans">
+                      <textarea
+                        ref={nameTextareaRef}
+                        value={name}
+                        onChange={handleNameChange}
+                        placeholder={isOwnProfile ? "Your name" : ""}
+                        readOnly={!isOwnProfile}
+                        className={`text-3xl font-bold w-full bg-transparent border-none outline-none resize-none
+                                 placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
+                        style={{ 
+                          minHeight: '1.2em',
+                          height: 'auto',
+                          display: 'block'
+                        }}
+                      />
+                    </pre>
                   </div>
 
                   {/* Bio Input */}
-                  <div className="flex-grow">
-                    <pre 
-                      className={`text-xl w-full bg-transparent border-none outline-none resize-none overflow-hidden
-                               placeholder:text-gray-300 whitespace-pre-wrap break-words font-sans ${!isOwnProfile ? 'cursor-default' : ''}`}
-                    >
+                  <div className="w-full">
+                    <pre className="w-full font-sans">
                       <textarea
                         ref={textareaRef}
                         value={bio}
                         onChange={handleBioChange}
                         placeholder={isOwnProfile ? "About you..." : ""}
                         readOnly={!isOwnProfile}
-                        className={`text-xl w-full bg-transparent border-none outline-none resize-none overflow-hidden
+                        className={`text-xl w-full bg-transparent border-none outline-none resize-none
                                  placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
                         style={{ 
                           minHeight: '2.5rem',
-                          height: 'auto'
+                          height: 'auto',
+                          display: 'block'
                         }}
                         onKeyDown={(e) => {
                           if (!isOwnProfile) return;
