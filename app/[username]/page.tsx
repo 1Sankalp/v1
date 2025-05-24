@@ -1554,19 +1554,42 @@ export default function ProfilePage({ params }: { params: { username: string } }
   useEffect(() => {
     if (!profile) return;
 
-    // Calculate initial heights after a short delay to ensure content is rendered
+    // Function to properly set element height based on content
+    const setProperHeight = (element: HTMLTextAreaElement) => {
+      // Reset any previous height
+      element.style.height = 'auto';
+      // Set a large temporary height to get the full content height
+      element.style.height = '9999px';
+      // Get the actual scroll height
+      const scrollHeight = element.scrollHeight;
+      // Set the actual height
+      element.style.height = `${scrollHeight}px`;
+    };
+
+    // Initial calculation with a delay to ensure content is rendered
     const timer = setTimeout(() => {
       if (nameTextareaRef.current) {
-        nameTextareaRef.current.style.height = 'auto';
-        nameTextareaRef.current.style.height = `${nameTextareaRef.current.scrollHeight}px`;
+        setProperHeight(nameTextareaRef.current);
       }
       if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+        setProperHeight(textareaRef.current);
       }
-    }, 100);
+    }, 0);
 
-    return () => clearTimeout(timer);
+    // Recalculate after images and fonts load
+    window.addEventListener('load', () => {
+      if (nameTextareaRef.current) {
+        setProperHeight(nameTextareaRef.current);
+      }
+      if (textareaRef.current) {
+        setProperHeight(textareaRef.current);
+      }
+    });
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('load', () => {});
+    };
   }, [profile, name, bio]);
 
   // Only render content after mounting
@@ -1637,8 +1660,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
                   </div>
 
                   {/* Name Input */}
-                  <div className="w-full">
-                    <pre className="w-full font-sans">
+                  <div className="w-full overflow-visible">
+                    <div className="w-full overflow-visible">
                       <textarea
                         ref={nameTextareaRef}
                         value={name}
@@ -1646,19 +1669,19 @@ export default function ProfilePage({ params }: { params: { username: string } }
                         placeholder={isOwnProfile ? "Your name" : ""}
                         readOnly={!isOwnProfile}
                         className={`text-3xl font-bold w-full bg-transparent border-none outline-none resize-none
-                                 placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
+                                 placeholder:text-gray-300 whitespace-pre-wrap break-words overflow-visible ${!isOwnProfile ? 'cursor-default' : ''}`}
                         style={{ 
                           minHeight: '1.2em',
                           height: 'auto',
                           display: 'block'
                         }}
                       />
-                    </pre>
+                    </div>
                   </div>
 
                   {/* Bio Input */}
-                  <div className="w-full">
-                    <pre className="w-full font-sans">
+                  <div className="w-full overflow-visible mt-4">
+                    <div className="w-full overflow-visible">
                       <textarea
                         ref={textareaRef}
                         value={bio}
@@ -1666,7 +1689,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                         placeholder={isOwnProfile ? "About you..." : ""}
                         readOnly={!isOwnProfile}
                         className={`text-xl w-full bg-transparent border-none outline-none resize-none
-                                 placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
+                                 placeholder:text-gray-300 whitespace-pre-wrap break-words overflow-visible ${!isOwnProfile ? 'cursor-default' : ''}`}
                         style={{ 
                           minHeight: '2.5rem',
                           height: 'auto',
@@ -1680,7 +1703,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                           }
                         }}
                       />
-                    </pre>
+                    </div>
                   </div>
                 </div>
               </div>
