@@ -1768,14 +1768,13 @@ export default function ProfilePage({ params }: { params: { username: string } }
                       className={`text-3xl font-bold w-full bg-transparent border-none outline-none resize-none
                                placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
                       style={{ 
-                        minHeight: '1.2em',
-                        height: 'auto'
+                        minHeight: '1.2em'
                       }}
                     />
                   </div>
 
                   {/* Bio Input */}
-                  <div className="w-full mt-4">
+                  <div className="w-full space-y-4">
                     <textarea
                       ref={textareaRef}
                       value={bio}
@@ -1785,8 +1784,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                       className={`text-xl w-full bg-transparent border-none outline-none resize-none
                                placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
                       style={{ 
-                        minHeight: '2.5rem',
-                        height: 'auto'
+                        minHeight: '2.5rem'
                       }}
                       onKeyDown={(e) => {
                         if (!isOwnProfile) return;
