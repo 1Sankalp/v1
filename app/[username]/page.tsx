@@ -1556,41 +1556,66 @@ export default function ProfilePage({ params }: { params: { username: string } }
 
     // Function to properly set element height based on content
     const setProperHeight = (element: HTMLTextAreaElement) => {
-      // Reset any previous height
+      if (!element) return;
+      
+      // Store current placeholder
+      const placeholder = element.placeholder;
+      // Temporarily remove placeholder to get true content height
+      element.placeholder = '';
+      
+      // Reset height to get proper scrollHeight
       element.style.height = 'auto';
-      // Set a large temporary height to get the full content height
-      element.style.height = '9999px';
-      // Get the actual scroll height
-      const scrollHeight = element.scrollHeight;
-      // Set the actual height
+      // Get the scrollHeight
+      const scrollHeight = Math.max(element.scrollHeight, element.offsetHeight);
+      // Set the height
       element.style.height = `${scrollHeight}px`;
+      
+      // Restore placeholder
+      element.placeholder = placeholder;
     };
 
-    // Initial calculation with a delay to ensure content is rendered
-    const timer = setTimeout(() => {
+    // Function to update both textareas
+    const updateHeights = () => {
       if (nameTextareaRef.current) {
         setProperHeight(nameTextareaRef.current);
       }
       if (textareaRef.current) {
         setProperHeight(textareaRef.current);
       }
-    }, 0);
+    };
 
-    // Recalculate after images and fonts load
-    window.addEventListener('load', () => {
-      if (nameTextareaRef.current) {
-        setProperHeight(nameTextareaRef.current);
-      }
-      if (textareaRef.current) {
-        setProperHeight(textareaRef.current);
-      }
-    });
+    // Initial update
+    updateHeights();
+
+    // Update after a short delay to handle font loading
+    const timer = setTimeout(updateHeights, 100);
+
+    // Update when window loads (fonts, images, etc. are ready)
+    window.addEventListener('load', updateHeights);
+
+    // Update on font load
+    document.fonts.ready.then(updateHeights);
 
     return () => {
       clearTimeout(timer);
-      window.removeEventListener('load', () => {});
+      window.removeEventListener('load', updateHeights);
     };
   }, [profile, name, bio]);
+
+  // Separate effect for handling textarea height updates during typing
+  useEffect(() => {
+    if (!nameTextareaRef.current) return;
+    const element = nameTextareaRef.current;
+    element.style.height = 'auto';
+    element.style.height = `${element.scrollHeight}px`;
+  }, [name]);
+
+  useEffect(() => {
+    if (!textareaRef.current) return;
+    const element = textareaRef.current;
+    element.style.height = 'auto';
+    element.style.height = `${element.scrollHeight}px`;
+  }, [bio]);
 
   // Only render content after mounting
   if (!mounted) {
@@ -1661,49 +1686,43 @@ export default function ProfilePage({ params }: { params: { username: string } }
 
                   {/* Name Input */}
                   <div className="w-full overflow-visible">
-                    <div className="w-full overflow-visible">
-                      <textarea
-                        ref={nameTextareaRef}
-                        value={name}
-                        onChange={handleNameChange}
-                        placeholder={isOwnProfile ? "Your name" : ""}
-                        readOnly={!isOwnProfile}
-                        className={`text-3xl font-bold w-full bg-transparent border-none outline-none resize-none
-                                 placeholder:text-gray-300 whitespace-pre-wrap break-words overflow-visible ${!isOwnProfile ? 'cursor-default' : ''}`}
-                        style={{ 
-                          minHeight: '1.2em',
-                          height: 'auto',
-                          display: 'block'
-                        }}
-                      />
-                    </div>
+                    <textarea
+                      ref={nameTextareaRef}
+                      value={name}
+                      onChange={handleNameChange}
+                      placeholder={isOwnProfile ? "Your name" : ""}
+                      readOnly={!isOwnProfile}
+                      className={`text-3xl font-bold w-full bg-transparent border-none outline-none resize-none
+                               placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
+                      style={{ 
+                        minHeight: '1.2em',
+                        height: 'auto'
+                      }}
+                    />
                   </div>
 
                   {/* Bio Input */}
                   <div className="w-full overflow-visible mt-4">
-                    <div className="w-full overflow-visible">
-                      <textarea
-                        ref={textareaRef}
-                        value={bio}
-                        onChange={handleBioChange}
-                        placeholder={isOwnProfile ? "About you..." : ""}
-                        readOnly={!isOwnProfile}
-                        className={`text-xl w-full bg-transparent border-none outline-none resize-none
-                                 placeholder:text-gray-300 whitespace-pre-wrap break-words overflow-visible ${!isOwnProfile ? 'cursor-default' : ''}`}
-                        style={{ 
-                          minHeight: '2.5rem',
-                          height: 'auto',
-                          display: 'block'
-                        }}
-                        onKeyDown={(e) => {
-                          if (!isOwnProfile) return;
-                          const maxBioLines = 13 - (nameLines - 1);
-                          if (e.key === 'Enter' && bio.split('\n').length >= maxBioLines) {
-                            e.preventDefault();
-                          }
-                        }}
-                      />
-                    </div>
+                    <textarea
+                      ref={textareaRef}
+                      value={bio}
+                      onChange={handleBioChange}
+                      placeholder={isOwnProfile ? "About you..." : ""}
+                      readOnly={!isOwnProfile}
+                      className={`text-xl w-full bg-transparent border-none outline-none resize-none
+                               placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
+                      style={{ 
+                        minHeight: '2.5rem',
+                        height: 'auto'
+                      }}
+                      onKeyDown={(e) => {
+                        if (!isOwnProfile) return;
+                        const maxBioLines = 13 - (nameLines - 1);
+                        if (e.key === 'Enter' && bio.split('\n').length >= maxBioLines) {
+                          e.preventDefault();
+                        }
+                      }}
+                    />
                   </div>
                 </div>
               </div>
