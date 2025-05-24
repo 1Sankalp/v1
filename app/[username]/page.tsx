@@ -1698,7 +1698,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
     return (
     <>
       {mounted && profile?.avatar_url && <FaviconManager avatar={profile.avatar_url} />}
-      <div className="h-screen bg-white p-8 overflow-hidden pt-12 md:px-12 px-4">
+      <div className="min-h-screen bg-white p-8 overflow-y-auto pt-12 md:px-12 px-4">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
@@ -1709,7 +1709,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
           </div>
         ) : profile ? (
           <>
-            <div className="max-w-full mx-auto flex flex-col md:flex-row h-full">
+            <div className="max-w-full mx-auto flex flex-col md:flex-row md:h-full">
               {/* Left Side: Profile Section */}
               <div className="w-full md:w-[400px] flex-shrink-0 mb-8 md:mb-0">
                 <div className="space-y-4">
@@ -1804,7 +1804,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
               </div>
 
               {/* Right Side: Projects Section */}
-              <div className="flex-grow md:pl-0 flex flex-col h-full w-full">
+              <div className="flex-grow md:pl-0 flex flex-col md:h-full w-full">
                 {/* Add Project Button */}
                 <div className="flex justify-end mb-8 flex-shrink-0">
                   <div className="flex items-center gap-4 flex-wrap justify-end">
@@ -1842,7 +1842,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
                 </div>
 
                 {/* Projects Grid - Scrollable */}
-                <div className="pr-0 flex-grow overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                <div className="pr-0 flex-grow md:overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                  {/* Desktop Grid */}
                   <motion.div
                     className="hidden md:grid md:grid-cols-2 md:gap-6 relative pb-6" 
                     style={{ 
@@ -1886,7 +1887,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                   </motion.div>
 
                   {/* Mobile Projects Grid */}
-                  <div className="md:hidden flex flex-col gap-6 pb-6">
+                  <div className="md:hidden flex flex-col gap-6 pb-20">
                     {projects.map((project) => (
                       <div
                         key={project.id}
