@@ -1714,48 +1714,50 @@ export default function ProfilePage({ params }: { params: { username: string } }
           <div className="w-[400px] flex-shrink-0">
             <div className="space-y-4">
               {/* Avatar Upload */}
-              <div 
-                onClick={isOwnProfile ? handleAvatarClick : undefined}
-                className={`w-48 h-48 rounded-full ${!avatar ? 'border-2 border-dashed border-gray-300' : ''} 
-                         flex items-center justify-center relative group ${isOwnProfile ? 'cursor-pointer' : ''}`}
-              >
-                {avatar ? (
-                  <>
-                    <div className="w-full absolute inset-0">
-                      <Image
-                        src={avatar}
-                        alt="Profile"
-                        width={192}
-                        height={192}
-                        className="object-cover w-full h-full rounded-full"
-                      />
-                    </div>
-                    {isOwnProfile && (
-                      <div className="mt-32 flex justify-center ml-32 relative z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <button
-                          onClick={handleDeleteAvatar}
-                          className="bg-white p-2 rounded-full text-gray-500 hover:text-black shadow-md transition-colors duration-300"
-                        >
-                          <Trash2 size={20} />
-                        </button>
+              {(isOwnProfile || avatar) && (
+                <div 
+                  onClick={isOwnProfile ? handleAvatarClick : undefined}
+                  className={`w-48 h-48 rounded-full ${!avatar ? 'border-2 border-dashed border-gray-300' : ''} 
+                           flex items-center justify-center relative group ${isOwnProfile ? 'cursor-pointer' : ''}`}
+                >
+                  {avatar ? (
+                    <>
+                      <div className="w-full absolute inset-0">
+                        <Image
+                          src={avatar}
+                          alt="Profile"
+                          width={192}
+                          height={192}
+                          className="object-cover w-full h-full rounded-full"
+                        />
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <span className="text-gray-400 text-md font-bold group-hover:scale-105 transition-transform duration-200">
-                    {isOwnProfile ? 'Add avatar' : ''}
-                  </span>
-                )}
-                {isOwnProfile && (
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAvatarChange}
-                    className="hidden"
-                  />
-                )}
-              </div>
+                      {isOwnProfile && (
+                        <div className="mt-32 flex justify-center ml-32 relative z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <button
+                            onClick={handleDeleteAvatar}
+                            className="bg-white p-2 rounded-full text-gray-500 hover:text-black shadow-md transition-colors duration-300"
+                          >
+                            <Trash2 size={20} />
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-gray-400 text-md font-bold group-hover:scale-105 transition-transform duration-200">
+                      {isOwnProfile ? 'Add avatar' : ''}
+                    </span>
+                  )}
+                  {isOwnProfile && (
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                    />
+                  )}
+                </div>
+              )}
 
               {/* Name Input */}
                   <div className="w-full">
