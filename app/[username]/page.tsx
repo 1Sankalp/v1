@@ -1735,7 +1735,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                   </div>
 
                   {/* Bio Input */}
-                  <div className="w-full mt-4">
+                  <div className="w-full mt-2">
                     <textarea
                       ref={textareaRef}
                       value={bio}
