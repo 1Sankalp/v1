@@ -600,7 +600,6 @@ export default function ProfilePage({ params }: { params: { username: string } }
     showSavingIndicator();
     
     try {
-      // First update the database
       const { error } = await supabase
         .from('users')
         .update({
@@ -615,19 +614,12 @@ export default function ProfilePage({ params }: { params: { username: string } }
         console.error('Error saving to database:', error);
         throw error;
       }
-
-      // If database update successful, update local state
-      if (data.name !== undefined) setName(data.name);
-      if (data.bio !== undefined) setBio(data.bio);
-      if (data.avatar !== undefined) setAvatar(data.avatar);
-      
-      console.log('Successfully saved changes:', data);
     } catch (err) {
       console.error('Error saving changes:', err);
     }
-  }, 500), [profile, name, bio, avatar, supabase, showSavingIndicator]);
+  }, 1000), [profile, name, bio, avatar, supabase, showSavingIndicator]);
 
-  // Update handlers to show saving indicator
+  // Separate immediate state updates from debounced saves
   const handleNameChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     const newLines = newValue.split('\n').length;
@@ -643,8 +635,11 @@ export default function ProfilePage({ params }: { params: { username: string } }
       saveChanges({ bio: trimmedBio });
     }
     
+    // Immediate state update
     setName(newValue);
     setNameLines(newLines);
+    
+    // Debounced save
     saveChanges({ name: newValue });
   };
 
@@ -654,26 +649,45 @@ export default function ProfilePage({ params }: { params: { username: string } }
     const lines = newValue.split('\n');
     
     if (lines.length <= maxBioLines) {
+      // Immediate state update
       setBio(newValue);
+      
+      // Debounced save
       saveChanges({ bio: newValue });
     }
   };
 
-  // Add effect to handle textarea resizing
+  // Optimize resize effects
   useEffect(() => {
-    if (nameTextareaRef.current) {
-      nameTextareaRef.current.style.height = 'auto';
-      const scrollHeight = nameTextareaRef.current.scrollHeight;
-      nameTextareaRef.current.style.height = scrollHeight + 'px';
-    }
+    const resizeTextarea = (ref: HTMLTextAreaElement | null) => {
+      if (!ref) return;
+      // Store scroll position
+      const scrollPos = window.scrollY;
+      // Reset height to auto to get proper scrollHeight
+      ref.style.height = 'auto';
+      // Set new height
+      ref.style.height = `${ref.scrollHeight}px`;
+      // Restore scroll position
+      window.scrollTo(0, scrollPos);
+    };
+
+    resizeTextarea(nameTextareaRef.current);
   }, [name]);
 
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      const scrollHeight = textareaRef.current.scrollHeight;
-      textareaRef.current.style.height = scrollHeight + 'px';
-    }
+    const resizeTextarea = (ref: HTMLTextAreaElement | null) => {
+      if (!ref) return;
+      // Store scroll position
+      const scrollPos = window.scrollY;
+      // Reset height to auto to get proper scrollHeight
+      ref.style.height = 'auto';
+      // Set new height
+      ref.style.height = `${ref.scrollHeight}px`;
+      // Restore scroll position
+      window.scrollTo(0, scrollPos);
+    };
+
+    resizeTextarea(textareaRef.current);
   }, [bio]);
 
   const handleAvatarClick = () => {
@@ -1614,29 +1628,40 @@ export default function ProfilePage({ params }: { params: { username: string } }
                       readOnly={!isOwnProfile}
                       className={`text-3xl font-bold w-full bg-transparent border-none outline-none resize-none overflow-hidden
                                placeholder:text-gray-300 ${!isOwnProfile ? 'cursor-default' : ''}`}
-                      style={{ minHeight: '1.2em' }}
+                      style={{ 
+                        minHeight: '1.2em',
+                        height: 'auto'
+                      }}
                     />
                   </div>
 
                   {/* Bio Input */}
                   <div className="flex-grow">
-                    <textarea
-                      ref={textareaRef}
-                      value={bio}
-                      onChange={handleBioChange}
-                      placeholder={isOwnProfile ? "About you..." : ""}
-                      readOnly={!isOwnProfile}
-                      className={`text-xl w-full bg-transparent border-none outline-none resize-none overflow-hidden min-h-[2.5rem]
-                               placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
-                      style={{ minHeight: '2.5rem' }}
-                      onKeyDown={(e) => {
-                        if (!isOwnProfile) return;
-                        const maxBioLines = 13 - (nameLines - 1);
-                        if (e.key === 'Enter' && bio.split('\n').length >= maxBioLines) {
-                          e.preventDefault();
-                        }
-                      }}
-                    />
+                    <pre 
+                      className={`text-xl w-full bg-transparent border-none outline-none resize-none overflow-hidden
+                               placeholder:text-gray-300 whitespace-pre-wrap break-words font-sans ${!isOwnProfile ? 'cursor-default' : ''}`}
+                    >
+                      <textarea
+                        ref={textareaRef}
+                        value={bio}
+                        onChange={handleBioChange}
+                        placeholder={isOwnProfile ? "About you..." : ""}
+                        readOnly={!isOwnProfile}
+                        className={`text-xl w-full bg-transparent border-none outline-none resize-none overflow-hidden
+                                 placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
+                        style={{ 
+                          minHeight: '2.5rem',
+                          height: 'auto'
+                        }}
+                        onKeyDown={(e) => {
+                          if (!isOwnProfile) return;
+                          const maxBioLines = 13 - (nameLines - 1);
+                          if (e.key === 'Enter' && bio.split('\n').length >= maxBioLines) {
+                            e.preventDefault();
+                          }
+                        }}
+                      />
+                    </pre>
                   </div>
                 </div>
               </div>
