@@ -1716,7 +1716,15 @@ export default function ProfilePage({ params }: { params: { username: string } }
                   </div>
 
                   {/* Name Input */}
-                  <div className="w-full">
+                  <div className="w-full relative">
+                    <div className="absolute inset-0" style={{ height: 'auto' }}>
+                      <div 
+                        aria-hidden="true"
+                        className="text-3xl font-bold w-full invisible whitespace-pre-wrap break-words"
+                      >
+                        {name || (isOwnProfile ? "Your name" : "")}
+                      </div>
+                    </div>
                     <textarea
                       ref={nameTextareaRef}
                       value={name}
@@ -1724,18 +1732,25 @@ export default function ProfilePage({ params }: { params: { username: string } }
                       placeholder={isOwnProfile ? "Your name" : ""}
                       readOnly={!isOwnProfile}
                       className={`text-3xl font-bold w-full bg-transparent border-none outline-none resize-none
-                               placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
+                               placeholder:text-gray-300 whitespace-pre-wrap break-words block ${!isOwnProfile ? 'cursor-default' : ''}`}
                       style={{ 
                         minHeight: '1.2em',
-                        height: 'auto',
-                        display: 'block',
-                        overflow: 'hidden'
+                        position: 'relative',
+                        zIndex: 1
                       }}
                     />
                   </div>
 
                   {/* Bio Input */}
-                  <div className="w-full mt-0">
+                  <div className="w-full relative mt-4">
+                    <div className="absolute inset-0" style={{ height: 'auto' }}>
+                      <div 
+                        aria-hidden="true"
+                        className="text-xl w-full invisible whitespace-pre-wrap break-words"
+                      >
+                        {bio || (isOwnProfile ? "About you..." : "")}
+                      </div>
+                    </div>
                     <textarea
                       ref={textareaRef}
                       value={bio}
@@ -1743,12 +1758,11 @@ export default function ProfilePage({ params }: { params: { username: string } }
                       placeholder={isOwnProfile ? "About you..." : ""}
                       readOnly={!isOwnProfile}
                       className={`text-xl w-full bg-transparent border-none outline-none resize-none
-                               placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
+                               placeholder:text-gray-300 whitespace-pre-wrap break-words block ${!isOwnProfile ? 'cursor-default' : ''}`}
                       style={{ 
                         minHeight: '2.5rem',
-                        height: 'auto',
-                        display: 'block',
-                        overflow: 'hidden'
+                        position: 'relative',
+                        zIndex: 1
                       }}
                       onKeyDown={(e) => {
                         if (!isOwnProfile) return;
