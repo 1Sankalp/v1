@@ -646,12 +646,6 @@ export default function ProfilePage({ params }: { params: { username: string } }
     setName(newValue);
     setNameLines(newLines);
     saveChanges({ name: newValue });
-    
-    // Adjust textarea height
-    if (nameTextareaRef.current) {
-      nameTextareaRef.current.style.height = 'auto';
-      nameTextareaRef.current.style.height = nameTextareaRef.current.scrollHeight + 'px';
-    }
   };
 
   const handleBioChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
@@ -662,14 +656,25 @@ export default function ProfilePage({ params }: { params: { username: string } }
     if (lines.length <= maxBioLines) {
       setBio(newValue);
       saveChanges({ bio: newValue });
-      
-      // Adjust textarea height
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-        textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
-      }
     }
   };
+
+  // Add effect to handle textarea resizing
+  useEffect(() => {
+    if (nameTextareaRef.current) {
+      nameTextareaRef.current.style.height = 'auto';
+      const scrollHeight = nameTextareaRef.current.scrollHeight;
+      nameTextareaRef.current.style.height = scrollHeight + 'px';
+    }
+  }, [name]);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      const scrollHeight = textareaRef.current.scrollHeight;
+      textareaRef.current.style.height = scrollHeight + 'px';
+    }
+  }, [bio]);
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -1609,6 +1614,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                       readOnly={!isOwnProfile}
                       className={`text-3xl font-bold w-full bg-transparent border-none outline-none resize-none overflow-hidden
                                placeholder:text-gray-300 ${!isOwnProfile ? 'cursor-default' : ''}`}
+                      style={{ minHeight: '1.2em' }}
                     />
                   </div>
 
@@ -1621,7 +1627,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
                       placeholder={isOwnProfile ? "About you..." : ""}
                       readOnly={!isOwnProfile}
                       className={`text-xl w-full bg-transparent border-none outline-none resize-none overflow-hidden min-h-[2.5rem]
-                               placeholder:text-gray-300 ${!isOwnProfile ? 'cursor-default' : ''}`}
+                               placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
+                      style={{ minHeight: '2.5rem' }}
                       onKeyDown={(e) => {
                         if (!isOwnProfile) return;
                         const maxBioLines = 13 - (nameLines - 1);
