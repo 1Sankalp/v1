@@ -1759,43 +1759,45 @@ export default function ProfilePage({ params }: { params: { username: string } }
 
               {/* Name Input */}
                   <div className="w-full">
-                <textarea
-                  ref={nameTextareaRef}
-                  value={name}
-                  onChange={handleNameChange}
-                  placeholder={isOwnProfile ? "Your name" : ""}
-                  readOnly={!isOwnProfile}
+                    <textarea
+                      ref={nameTextareaRef}
+                      value={name}
+                      onChange={handleNameChange}
+                      placeholder={isOwnProfile ? "Your name" : ""}
+                      readOnly={!isOwnProfile}
                       className={`text-3xl font-bold w-full bg-transparent border-none outline-none resize-none
                                placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
                       style={{ 
-                        minHeight: '1.2em'
+                        minHeight: '1.2em',
+                        paddingBottom: 0
                       }}
-                />
-              </div>
+                    />
+                  </div>
 
-              {/* Bio Input */}
-                  <div className="w-full space-y-4">
-                <textarea
-                  ref={textareaRef}
-                  value={bio}
-                  onChange={handleBioChange}
-                  placeholder={isOwnProfile ? "About you..." : ""}
-                  readOnly={!isOwnProfile}
+                  {/* Bio Input */}
+                  <div className="w-full" style={{ marginTop: '-4px' }}>
+                    <textarea
+                      ref={textareaRef}
+                      value={bio}
+                      onChange={handleBioChange}
+                      placeholder={isOwnProfile ? "About you..." : ""}
+                      readOnly={!isOwnProfile}
                       className={`text-xl w-full bg-transparent border-none outline-none resize-none
                                placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
                       style={{ 
-                        minHeight: '2.5rem'
+                        minHeight: '2.5rem',
+                        paddingTop: 0
                       }}
-                  onKeyDown={(e) => {
-                    if (!isOwnProfile) return;
-                    const maxBioLines = 13 - (nameLines - 1);
+                      onKeyDown={(e) => {
+                        if (!isOwnProfile) return;
+                        const maxBioLines = 13 - (nameLines - 1);
                         const currentLines = bio.split('\n').length;
                         if (e.key === 'Enter' && currentLines >= maxBioLines) {
-                      e.preventDefault();
-                    }
-                  }}
-                />
-              </div>
+                          e.preventDefault();
+                        }
+                      }}
+                    />
+                  </div>
             </div>
           </div>
 
