@@ -1385,8 +1385,36 @@ export default function ProfilePage({ params }: { params: { username: string } }
     window.open(url, '_blank');
   };
 
+  // Set favicon helper (removes all existing favicon tags, adds new one)
+  const setFavicon = useCallback((url: string) => {
+    try {
+      // Only run in browser environment and if document is ready
+      if (typeof window === 'undefined' || !document?.head) return;
+
+      // Safely remove existing favicons
+      const existingFavicons = document.head.querySelectorAll("link[rel*='icon']");
+      existingFavicons.forEach(favicon => {
+        try {
+          document.head?.removeChild(favicon);
+        } catch (err) {
+          console.warn('Error removing favicon:', err);
+        }
+      });
+
+      // Add new favicon
+      const link = document.createElement('link');
+      link.type = 'image/x-icon';
+      link.rel = 'icon';
+      link.href = url;
+      document.head.appendChild(link);
+    } catch (err) {
+      console.warn('Error setting favicon:', err);
+    }
+  }, []);
+
   // Effect to initialize socialInputs with existing links when modal opens
   useEffect(() => {
+    if (!mounted) return; // Don't run on server-side
     if (showSocialLinks) {
       // Create new array with 5 empty slots
       const newInputs = Array(5).fill({ url: '', favicon: '', isLoading: false });
@@ -1396,129 +1424,47 @@ export default function ProfilePage({ params }: { params: { username: string } }
       });
       setSocialInputs(newInputs);
     }
-  }, [showSocialLinks]);
-
-  // Set favicon helper (removes all existing favicon tags, adds new one)
-  const setFavicon = useCallback((url: string) => {
-    try {
-      // Only run in browser environment and if document is ready
-      if (typeof document === 'undefined' || !document.head) return;
-
-      // Safely remove existing favicons
-      const links = Array.from(document.head.querySelectorAll("link[rel*='icon']"));
-      links.forEach(link => {
-        try {
-          if (link && link.parentNode) {
-            link.parentNode.removeChild(link);
-          }
-        } catch (err) {
-          console.warn('Error removing old favicon:', err);
-        }
-      });
-
-      try {
-        // Add new favicon
-        const newLink = document.createElement('link');
-        newLink.rel = 'icon';
-        newLink.href = url;
-        document.head?.appendChild(newLink);
-      } catch (err) {
-        console.warn('Error adding new favicon:', err);
-      }
-    } catch (error) {
-      console.warn('Error updating favicon:', error);
-    }
-  }, []);
-
-  // On mount, store the default favicon and handle cleanup
-  useEffect(() => {
-    // Only run in browser environment
-    if (typeof document === 'undefined' || !document.head) return;
-
-    // Store default favicon
-    const link = document.head.querySelector("link[rel*='icon']");
-    if (link) {
-      defaultFaviconRef.current = link.getAttribute('href');
-    }
-
-    // Cleanup function
-    return () => {
-      if (defaultFaviconRef.current && document.head) {
-        try {
-          setFavicon(defaultFaviconRef.current);
-        } catch (err) {
-          console.warn('Error restoring default favicon:', err);
-        }
-      }
-    };
-  }, []);
-
-  // Update favicon when avatar changes
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    
-    if (avatar && typeof document !== 'undefined' && document.head) {
-      timeoutId = setTimeout(async () => {
-        try {
-          const faviconUrl = await createFaviconFromDataUrl(avatar);
-          if (document.head) { // Double check document.head exists
-            setFavicon(faviconUrl);
-          }
-        } catch (error) {
-          console.warn('Error creating favicon:', error);
-          if (defaultFaviconRef.current && document.head) {
-            setFavicon(defaultFaviconRef.current);
-          }
-        }
-      }, 1000);
-    } else if (defaultFaviconRef.current && typeof document !== 'undefined' && document.head) {
-      setFavicon(defaultFaviconRef.current);
-    }
-
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      // Restore default favicon on cleanup if it exists
-      if (defaultFaviconRef.current && typeof document !== 'undefined' && document.head) {
-        try {
-          setFavicon(defaultFaviconRef.current);
-        } catch (err) {
-          console.warn('Error restoring default favicon on cleanup:', err);
-        }
-      }
-    };
-  }, [avatar, setFavicon]);
-
-  // Update page title when name changes
-  useEffect(() => {
-    document.title = name || 'Superfolio';
-  }, [name]);
+  }, [showSocialLinks, mounted, socialLinks]);
 
   // Effect to determine if user is viewing their own profile
   useEffect(() => {
+    if (!mounted) return; // Don't run on server-side
+    
     const checkSession = async () => {
-      console.log('Checking session...');
-      
-      // Get Supabase session
-      const { data: { session: supaSession } } = await supabase.auth.getSession();
-      console.log('Supabase session:', supaSession);
-      console.log('URL username:', params.username);
-
-      if (supaSession?.user?.user_metadata?.username === params.username) {
-        console.log('Setting isOwnProfile to true - matched session');
-        setIsOwnProfile(true);
-      } else {
-        console.log('Setting isOwnProfile to false - no session match');
+      try {
+        console.log('Checking session...');
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('Session:', session);
+        
+        if (session?.user?.id) {
+          // Get user metadata to compare username
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('username')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (userError) throw userError;
+          
+          const isOwner = userData?.username === params.username;
+          console.log('Setting isOwnProfile:', isOwner);
+          setIsOwnProfile(isOwner);
+        } else {
+          setIsOwnProfile(false);
+        }
+      } catch (err) {
+        console.error('Error checking session:', err);
         setIsOwnProfile(false);
       }
     };
 
     checkSession();
-  }, [params.username]);
+  }, [params.username, mounted]);
 
   // Effect to fetch user profile data
   useEffect(() => {
+    if (!mounted) return; // Don't run on server-side
+    
     const fetchProfile = async () => {
       if (!params.username) {
         console.log('No username in params');
@@ -1527,6 +1473,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
       
       console.log('Fetching profile for:', params.username);
       setLoading(true);
+      setError(null); // Reset error state
+      
       try {
         // Get the user data using public client
         const { data: userData, error: userError } = await supabasePublic
@@ -1535,14 +1483,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
           .eq('username', params.username)
           .single();
 
-        if (userError) {
-          console.error('Error fetching user:', userError);
-          throw userError;
-        }
-        if (!userData) {
-          console.error('User not found');
-          throw new Error('User not found');
-        }
+        if (userError) throw userError;
+        if (!userData) throw new Error('User not found');
 
         console.log('Found user data:', userData);
 
@@ -1552,24 +1494,14 @@ export default function ProfilePage({ params }: { params: { username: string } }
         setBio(userData.bio || '');
         setAvatar(userData.avatar_url || null);
 
-        // Check if user is owner of profile
-        const { data: { session } } = await supabase.auth.getSession();
-        const isOwner = session?.user?.id === userData.id;
-        setIsOwnProfile(isOwner);
-
-        // Always fetch fresh data for projects
-        console.log('Fetching projects from Supabase');
+        // Fetch projects
         const { data: projectsData, error: projectsError } = await supabasePublic
           .from('projects')
           .select('*')
           .eq('user_id', userData.id)
           .order('created_at', { ascending: false });
 
-        if (projectsError) {
-          console.error('Error fetching projects:', projectsError);
-          throw projectsError;
-        }
-        console.log('Found projects:', projectsData);
+        if (projectsError) throw projectsError;
 
         // Transform projects
         const finalProjects = await Promise.all((projectsData || []).map(async p => ({
@@ -1584,18 +1516,13 @@ export default function ProfilePage({ params }: { params: { username: string } }
           otherFavicon: p.other_link ? await getFavicon(p.other_link) : undefined
         })));
 
-        // Always fetch fresh data for social links
-        console.log('Fetching social links from Supabase');
+        // Fetch social links
         const { data: socialsData, error: socialsError } = await supabasePublic
           .from('social_links')
           .select('*')
           .eq('user_id', userData.id);
 
-        if (socialsError) {
-          console.error('Error fetching social links:', socialsError);
-          throw socialsError;
-        }
-        console.log('Found social links:', socialsData);
+        if (socialsError) throw socialsError;
 
         // Transform social links
         const finalSocialLinks = await Promise.all(
@@ -1605,11 +1532,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
           }))
         );
 
-        console.log('Setting final projects:', finalProjects);
-        console.log('Setting final social links:', finalSocialLinks);
         setProjects(finalProjects);
         setSocialLinks(finalSocialLinks);
-
         setError(null);
       } catch (err) {
         console.error('Error fetching profile:', err);
@@ -1620,12 +1544,77 @@ export default function ProfilePage({ params }: { params: { username: string } }
         setSocialLinks([]);
       } finally {
         setLoading(false);
-        setMounted(true);
       }
     };
 
     fetchProfile();
-  }, [params.username]);
+  }, [params.username, mounted]);
+
+  // Update favicon when avatar changes
+  useEffect(() => {
+    if (!mounted) return; // Don't run on server-side
+    
+    let timeoutId: NodeJS.Timeout;
+    
+    if (avatar && typeof window !== 'undefined') {
+      timeoutId = setTimeout(async () => {
+        try {
+          const faviconUrl = await createFaviconFromDataUrl(avatar);
+          setFavicon(faviconUrl);
+        } catch (error) {
+          console.warn('Error creating favicon:', error);
+          if (defaultFaviconRef.current) {
+            setFavicon(defaultFaviconRef.current);
+          }
+        }
+      }, 1000);
+    } else if (defaultFaviconRef.current) {
+      setFavicon(defaultFaviconRef.current);
+    }
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      // Restore default favicon on cleanup if it exists
+      if (defaultFaviconRef.current) {
+        try {
+          setFavicon(defaultFaviconRef.current);
+        } catch (err) {
+          console.warn('Error restoring default favicon:', err);
+        }
+      }
+    };
+  }, [avatar, setFavicon, mounted]);
+
+  // Update page title when name changes
+  useEffect(() => {
+    if (!mounted) return; // Don't run on server-side
+    document.title = name || 'Superfolio';
+  }, [name, mounted]);
+
+  // On mount, store the default favicon
+  useEffect(() => {
+    if (typeof window === 'undefined' || !document?.head) return;
+    
+    setMounted(true);
+    
+    // Store default favicon
+    const link = document.head.querySelector("link[rel*='icon']");
+    if (link) {
+      defaultFaviconRef.current = link.getAttribute('href');
+    }
+
+    return () => {
+      if (defaultFaviconRef.current) {
+        try {
+          setFavicon(defaultFaviconRef.current);
+        } catch (err) {
+          console.warn('Error restoring default favicon:', err);
+        }
+      }
+    };
+  }, []);
 
   // Add a handler for login navigation
   const handleLoginClick = (e: React.MouseEvent) => {
