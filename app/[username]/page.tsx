@@ -1777,7 +1777,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                   </div>
 
                   {/* Bio Input */}
-                  <div className="w-full" style={{ marginTop: '-6px' }}>
+                  <div className="w-full" style={{ marginTop: '-12px' }}>
                     <textarea
                       ref={textareaRef}
                       value={bio}
@@ -1807,7 +1807,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
               <div className="flex-grow md:pl-0 flex flex-col h-full w-full">
                 {/* Add Project Button */}
                 <div className="flex justify-end mb-8 flex-shrink-0">
-                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                  <div className="flex items-center gap-4 flex-wrap justify-end">
                     {/* Social Icons */}
                     <div className="flex items-center gap-4 flex-wrap justify-end">
                       {socialLinks.map((social, index) => (
@@ -1824,7 +1824,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                       <button 
                         onClick={() => setShowSocialLinks(true)}
                         className="bg-[#0085ff] text-white font-bold px-6 py-3 rounded-2xl 
-                                 hover:bg-[#2999ff] transition-colors duration-300 mr-4"
+                                 hover:bg-[#2999ff] transition-colors duration-300"
                       >
                         {socialLinks.length > 0 ? 'Edit Socials' : 'Add Socials'}
                       </button>
@@ -1832,7 +1832,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                     {isOwnProfile && (
                       <button 
                         onClick={handleAddProjectClick}
-                        className="bg-[#0085ff] text-white font-bold px-6 py-3 rounded-2xl 
+                        className="bg-[#0085ff] text-white font-bold px-6 py-3 rounded-2xl ml-4
                                  hover:bg-[#2999ff] transition-colors duration-300"
                       >
                         Add Project
