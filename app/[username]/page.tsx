@@ -619,7 +619,76 @@ export default function ProfilePage({ params }: { params: { username: string } }
     }
   }, 1000), [profile, name, bio, avatar, supabase, showSavingIndicator]);
 
-  // Separate immediate state updates from debounced saves
+  // Add this helper function at the top level of the component
+  const calculateMaxHeight = (element: HTMLTextAreaElement, maxLines: number) => {
+    // Create a single line to measure line height
+    const clone = element.cloneNode() as HTMLTextAreaElement;
+    clone.rows = 1;
+    clone.value = 'A';
+    clone.style.visibility = 'hidden';
+    clone.style.position = 'absolute';
+    document.body.appendChild(clone);
+    
+    // Get single line height
+    const lineHeight = clone.scrollHeight;
+    document.body.removeChild(clone);
+    
+    // Return max height
+    return lineHeight * maxLines;
+  };
+
+  // Update the useEffect for initial height calculation
+  useEffect(() => {
+    if (!profile) return;
+
+    const updateTextareaHeight = (element: HTMLTextAreaElement, content: string) => {
+      if (!element) return;
+      
+      // Create a hidden div to measure the content height
+      const div = document.createElement('div');
+      div.style.visibility = 'hidden';
+      div.style.position = 'absolute';
+      div.style.width = `${element.offsetWidth}px`;
+      div.style.fontSize = window.getComputedStyle(element).fontSize;
+      div.style.fontFamily = window.getComputedStyle(element).fontFamily;
+      div.style.lineHeight = window.getComputedStyle(element).lineHeight;
+      div.style.whiteSpace = 'pre-wrap';
+      div.textContent = content || ' '; // Use space if empty to get minimum height
+      
+      document.body.appendChild(div);
+      const contentHeight = div.offsetHeight;
+      document.body.removeChild(div);
+      
+      // Set the height
+      element.style.height = `${contentHeight}px`;
+    };
+
+    const updateAllHeights = () => {
+      if (nameTextareaRef.current) {
+        updateTextareaHeight(nameTextareaRef.current, name);
+      }
+      if (textareaRef.current) {
+        updateTextareaHeight(textareaRef.current, bio);
+      }
+    };
+
+    // Update heights in multiple phases
+    updateAllHeights(); // Immediate
+    requestAnimationFrame(updateAllHeights); // Next frame
+    setTimeout(updateAllHeights, 100); // After short delay
+    
+    // Update after fonts load
+    document.fonts.ready.then(updateAllHeights);
+    
+    // Update after window load
+    window.addEventListener('load', updateAllHeights);
+
+    return () => {
+      window.removeEventListener('load', updateAllHeights);
+    };
+  }, [profile, name, bio]);
+
+  // Update the name change handler
   const handleNameChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     const newLines = newValue.split('\n').length;
@@ -635,60 +704,22 @@ export default function ProfilePage({ params }: { params: { username: string } }
       saveChanges({ bio: trimmedBio });
     }
     
-    // Immediate state update
     setName(newValue);
     setNameLines(newLines);
-    
-    // Debounced save
     saveChanges({ name: newValue });
   };
 
+  // Update the bio change handler
   const handleBioChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const maxBioLines = 13 - (nameLines - 1);
     const newValue = e.target.value;
     const lines = newValue.split('\n');
     
     if (lines.length <= maxBioLines) {
-      // Immediate state update
       setBio(newValue);
-      
-      // Debounced save
       saveChanges({ bio: newValue });
     }
   };
-
-  // Optimize resize effects
-  useEffect(() => {
-    const resizeTextarea = (ref: HTMLTextAreaElement | null) => {
-      if (!ref) return;
-      // Store scroll position
-      const scrollPos = window.scrollY;
-      // Reset height to auto to get proper scrollHeight
-      ref.style.height = 'auto';
-      // Set new height
-      ref.style.height = `${ref.scrollHeight}px`;
-      // Restore scroll position
-      window.scrollTo(0, scrollPos);
-    };
-
-    resizeTextarea(nameTextareaRef.current);
-  }, [name]);
-
-  useEffect(() => {
-    const resizeTextarea = (ref: HTMLTextAreaElement | null) => {
-      if (!ref) return;
-      // Store scroll position
-      const scrollPos = window.scrollY;
-      // Reset height to auto to get proper scrollHeight
-      ref.style.height = 'auto';
-      // Set new height
-      ref.style.height = `${ref.scrollHeight}px`;
-      // Restore scroll position
-      window.scrollTo(0, scrollPos);
-    };
-
-    resizeTextarea(textareaRef.current);
-  }, [bio]);
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -1685,7 +1716,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                   </div>
 
                   {/* Name Input */}
-                  <div className="w-full overflow-visible">
+                  <div className="w-full">
                     <textarea
                       ref={nameTextareaRef}
                       value={name}
@@ -1696,13 +1727,15 @@ export default function ProfilePage({ params }: { params: { username: string } }
                                placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
                       style={{ 
                         minHeight: '1.2em',
-                        height: 'auto'
+                        height: 'auto',
+                        display: 'block',
+                        overflow: 'hidden'
                       }}
                     />
                   </div>
 
                   {/* Bio Input */}
-                  <div className="w-full overflow-visible mt-4">
+                  <div className="w-full mt-4">
                     <textarea
                       ref={textareaRef}
                       value={bio}
@@ -1713,12 +1746,15 @@ export default function ProfilePage({ params }: { params: { username: string } }
                                placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
                       style={{ 
                         minHeight: '2.5rem',
-                        height: 'auto'
+                        height: 'auto',
+                        display: 'block',
+                        overflow: 'hidden'
                       }}
                       onKeyDown={(e) => {
                         if (!isOwnProfile) return;
                         const maxBioLines = 13 - (nameLines - 1);
-                        if (e.key === 'Enter' && bio.split('\n').length >= maxBioLines) {
+                        const currentLines = bio.split('\n').length;
+                        if (e.key === 'Enter' && currentLines >= maxBioLines) {
                           e.preventDefault();
                         }
                       }}
