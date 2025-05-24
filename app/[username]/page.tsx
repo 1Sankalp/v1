@@ -1777,7 +1777,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                   </div>
 
                   {/* Bio Input */}
-                  <div className="w-full" style={{ marginTop: '-4px' }}>
+                  <div className="w-full" style={{ marginTop: '-6px' }}>
                     <textarea
                       ref={textareaRef}
                       value={bio}
@@ -1807,7 +1807,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
               <div className="flex-grow md:pl-0 flex flex-col h-full w-full">
                 {/* Add Project Button */}
                 <div className="flex justify-end mb-8 flex-shrink-0">
-                  <div className="flex items-center gap-4 flex-wrap justify-end">
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
                     {/* Social Icons */}
                     <div className="flex items-center gap-4 flex-wrap justify-end">
                       {socialLinks.map((social, index) => (
