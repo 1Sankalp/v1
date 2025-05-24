@@ -1392,11 +1392,9 @@ export default function ProfilePage({ params }: { params: { username: string } }
 
   // Effect to fetch profile data - only run after mounting
   useEffect(() => {
-    if (!mounted || initialized) return;
+    if (!mounted || initialized || !params.username) return;
     
     const initializeProfile = async () => {
-      if (!params.username) return;
-      
       setLoading(true);
       setError(null);
       
@@ -1478,11 +1476,28 @@ export default function ProfilePage({ params }: { params: { username: string } }
     initializeProfile();
   }, [mounted, initialized, params.username]);
 
+  // Effect to check logged-in user
+  useEffect(() => {
+    if (!mounted) return;
+    
+    const checkLoggedInUser = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.user_metadata?.username) {
+          setLoggedInUsername(session.user.user_metadata.username);
+        }
+      } catch (err) {
+        console.error('Error checking logged-in user:', err);
+      }
+    };
+    checkLoggedInUser();
+  }, [mounted]);
+
   // Update page title
   useEffect(() => {
     if (!mounted) return;
-    document.title = name || 'Superfolio';
-  }, [name, mounted]);
+    document.title = name || params.username || 'Superfolio';
+  }, [name, mounted, params.username]);
 
   // Add a handler for login navigation
   const handleLoginClick = (e: React.MouseEvent) => {
@@ -1490,22 +1505,14 @@ export default function ProfilePage({ params }: { params: { username: string } }
     window.location.href = '/login';
   };
 
-  // Effect to check logged-in user
-  useEffect(() => {
-    if (!mounted) return;
-    
-    const checkLoggedInUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.user_metadata?.username) {
-        setLoggedInUsername(session.user.user_metadata.username);
-      }
-    };
-    checkLoggedInUser();
-  }, [mounted]);
+  // Only render content after mounting
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <>
-      {mounted && <FaviconManager avatar={avatar} />}
+      {mounted && profile?.avatar_url && <FaviconManager avatar={profile.avatar_url} />}
       <div className="h-screen bg-white p-8 overflow-hidden pt-12 px-12">
         {loading ? (
           <div className="flex items-center justify-center h-full">
@@ -1515,7 +1522,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
           <div className="flex items-center justify-center h-full">
             <p className="text-red-500">{error}</p>
           </div>
-        ) : (
+        ) : profile ? (
           <>
             <div className="max-w-full mx-auto flex h-full">
               {/* Left Side: Profile Section */}
@@ -1943,6 +1950,10 @@ export default function ProfilePage({ params }: { params: { username: string } }
               )}
             </AnimatePresence>
           </>
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-gray-500">Profile not found</p>
+          </div>
         )}
       </div>
     </>
