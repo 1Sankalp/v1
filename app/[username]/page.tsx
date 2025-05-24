@@ -1648,6 +1648,43 @@ export default function ProfilePage({ params }: { params: { username: string } }
     element.style.height = `${element.scrollHeight}px`;
   }, [bio]);
 
+  // Add this effect to handle initial content display
+  useEffect(() => {
+    if (!profile) return;
+
+    const setInitialHeights = () => {
+      // Set name height
+      if (nameTextareaRef.current) {
+        const nameElement = nameTextareaRef.current;
+        nameElement.style.height = 'auto';
+        nameElement.style.height = `${Math.max(nameElement.scrollHeight, 32)}px`; // 32px minimum
+      }
+
+      // Set bio height
+      if (textareaRef.current) {
+        const bioElement = textareaRef.current;
+        bioElement.style.height = 'auto';
+        bioElement.style.height = `${Math.max(bioElement.scrollHeight, 40)}px`; // 40px minimum
+      }
+    };
+
+    // Run multiple times to ensure proper rendering
+    setInitialHeights();
+    requestAnimationFrame(setInitialHeights);
+    setTimeout(setInitialHeights, 50);
+    setTimeout(setInitialHeights, 100);
+    setTimeout(setInitialHeights, 500);
+
+    // Also run when fonts are loaded
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(setInitialHeights);
+    }
+
+    return () => {
+      // Clear any pending timeouts if component unmounts
+    };
+  }, [profile, name, bio]);
+
   // Only render content after mounting
   if (!mounted) {
     return null;
@@ -1716,15 +1753,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                   </div>
 
                   {/* Name Input */}
-                  <div className="w-full relative">
-                    <div className="absolute inset-0" style={{ height: 'auto' }}>
-                      <div 
-                        aria-hidden="true"
-                        className="text-3xl font-bold w-full invisible whitespace-pre-wrap break-words"
-                      >
-                        {name || (isOwnProfile ? "Your name" : "")}
-                      </div>
-                    </div>
+                  <div className="w-full">
                     <textarea
                       ref={nameTextareaRef}
                       value={name}
@@ -1732,25 +1761,17 @@ export default function ProfilePage({ params }: { params: { username: string } }
                       placeholder={isOwnProfile ? "Your name" : ""}
                       readOnly={!isOwnProfile}
                       className={`text-3xl font-bold w-full bg-transparent border-none outline-none resize-none
-                               placeholder:text-gray-300 whitespace-pre-wrap break-words block ${!isOwnProfile ? 'cursor-default' : ''}`}
+                               placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
                       style={{ 
-                        minHeight: '1.2em',
-                        position: 'relative',
-                        zIndex: 1
+                        minHeight: '32px',
+                        display: 'block',
+                        overflow: 'hidden'
                       }}
                     />
                   </div>
 
                   {/* Bio Input */}
-                  <div className="w-full relative mt-4">
-                    <div className="absolute inset-0" style={{ height: 'auto' }}>
-                      <div 
-                        aria-hidden="true"
-                        className="text-xl w-full invisible whitespace-pre-wrap break-words"
-                      >
-                        {bio || (isOwnProfile ? "About you..." : "")}
-                      </div>
-                    </div>
+                  <div className="w-full" style={{ marginTop: '16px' }}>
                     <textarea
                       ref={textareaRef}
                       value={bio}
@@ -1758,11 +1779,11 @@ export default function ProfilePage({ params }: { params: { username: string } }
                       placeholder={isOwnProfile ? "About you..." : ""}
                       readOnly={!isOwnProfile}
                       className={`text-xl w-full bg-transparent border-none outline-none resize-none
-                               placeholder:text-gray-300 whitespace-pre-wrap break-words block ${!isOwnProfile ? 'cursor-default' : ''}`}
+                               placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
                       style={{ 
-                        minHeight: '2.5rem',
-                        position: 'relative',
-                        zIndex: 1
+                        minHeight: '40px',
+                        display: 'block',
+                        overflow: 'hidden'
                       }}
                       onKeyDown={(e) => {
                         if (!isOwnProfile) return;
