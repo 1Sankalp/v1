@@ -704,19 +704,24 @@ export default function ProfilePage({ params }: { params: { username: string } }
       saveChanges({ bio: trimmedBio });
     }
     
+    // Immediate state update
     setName(newValue);
     setNameLines(newLines);
+    
+    // Debounced save
     saveChanges({ name: newValue });
   };
 
-  // Update the bio change handler
   const handleBioChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const maxBioLines = 13 - (nameLines - 1);
     const newValue = e.target.value;
     const lines = newValue.split('\n');
     
     if (lines.length <= maxBioLines) {
+      // Immediate state update
       setBio(newValue);
+      
+      // Debounced save
       saveChanges({ bio: newValue });
     }
   };
@@ -1763,15 +1768,14 @@ export default function ProfilePage({ params }: { params: { username: string } }
                       className={`text-3xl font-bold w-full bg-transparent border-none outline-none resize-none
                                placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
                       style={{ 
-                        minHeight: '32px',
-                        display: 'block',
-                        overflow: 'hidden'
+                        minHeight: '1.2em',
+                        height: 'auto'
                       }}
                     />
                   </div>
 
                   {/* Bio Input */}
-                  <div className="w-full" style={{ marginTop: '16px' }}>
+                  <div className="w-full mt-4">
                     <textarea
                       ref={textareaRef}
                       value={bio}
@@ -1781,9 +1785,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
                       className={`text-xl w-full bg-transparent border-none outline-none resize-none
                                placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
                       style={{ 
-                        minHeight: '40px',
-                        display: 'block',
-                        overflow: 'hidden'
+                        minHeight: '2.5rem',
+                        height: 'auto'
                       }}
                       onKeyDown={(e) => {
                         if (!isOwnProfile) return;
