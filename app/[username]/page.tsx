@@ -1832,7 +1832,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                     {isOwnProfile && (
                       <button 
                         onClick={handleAddProjectClick}
-                        className="bg-[#0085ff] text-white font-bold px-6 py-3 rounded-2xl ml-4
+                        className="bg-[#0085ff] text-white font-bold px-6 py-3 rounded-2xl
                                  hover:bg-[#2999ff] transition-colors duration-300"
                       >
                         Add Project
