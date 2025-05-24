@@ -1698,7 +1698,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
     return (
     <>
       {mounted && profile?.avatar_url && <FaviconManager avatar={profile.avatar_url} />}
-      <div className="h-screen bg-white p-8 overflow-hidden pt-12 px-12 md:px-12 px-4">
+      <div className="h-screen bg-white p-8 overflow-hidden pt-12 md:px-12 px-4">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
@@ -1709,7 +1709,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
           </div>
         ) : profile ? (
           <>
-            <div className="max-w-full mx-auto flex h-full flex-col md:flex-row">
+            <div className="max-w-full mx-auto flex flex-col md:flex-row h-full">
               {/* Left Side: Profile Section */}
               <div className="w-full md:w-[400px] flex-shrink-0 mb-8 md:mb-0">
                 <div className="space-y-4">
@@ -1844,9 +1844,9 @@ export default function ProfilePage({ params }: { params: { username: string } }
                 {/* Projects Grid - Scrollable */}
                 <div className="pr-0 flex-grow overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                   <motion.div
-                    className="grid grid-cols-1 md:grid-cols-2 gap-6 relative pb-6" 
+                    className="hidden md:grid md:grid-cols-2 md:gap-6 relative pb-6" 
                     style={{ 
-                      gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 400px), 1fr))",
+                      gridTemplateColumns: "repeat(2, 400px)",
                       justifyContent: "end",
                       columnGap: "28px"
                     }}
@@ -1860,7 +1860,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                         exit={{ opacity: 0}}
                         layout
                         layoutId={project.id}
-                        className="w-full md:w-[400px] mx-auto"
+                        className="w-[400px]"
                       >
                         <ProjectCard 
                           project={project}
@@ -1884,6 +1884,36 @@ export default function ProfilePage({ params }: { params: { username: string } }
                       </motion.div>
                     ))}
                   </motion.div>
+
+                  {/* Mobile Projects Grid */}
+                  <div className="md:hidden flex flex-col gap-6 pb-6">
+                    {projects.map((project) => (
+                      <div
+                        key={project.id}
+                        className="w-full"
+                      >
+                        <ProjectCard 
+                          project={project}
+                          onDelete={handleDeleteProject}
+                          onEdit={handleEditProject}
+                          isOwnProfile={isOwnProfile}
+                          supabase={supabase}
+                          onEditClick={(project) => {
+                            if (!isOwnProfile || document.activeElement?.tagName.toLowerCase() === 'input') return;
+                            setShowAddProject(true);
+                            setEditingProject(project);
+                            setProjectLink(project.projectLink);
+                            setGithubLink(project.githubLink || '');
+                            setOtherLink(project.otherLink || '');
+                            setProjectDescription(project.description);
+                            setProjectFavicon(project.projectFavicon);
+                            setGithubFavicon(project.githubFavicon || '');
+                            setOtherFavicon(project.otherFavicon || '');
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
