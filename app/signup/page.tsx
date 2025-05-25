@@ -152,12 +152,12 @@ export default function SignupPage() {
         throw new Error('User with this email or username already exists');
       }
 
-      // Sign up with Supabase Auth 
+      // Sign up with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email.toLowerCase().trim(),
         password: password.trim(),
         options: {
-          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/login?verified=true`,
           data: {
             username: username.toLowerCase().trim()
           }
@@ -167,22 +167,16 @@ export default function SignupPage() {
       if (authError) throw authError;
       if (!authData.user) throw new Error('No user returned from auth signup');
 
-      // Create user record using fetch to backend endpoint
-      const response = await fetch('/api/create-user', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Create user record
+      const { error: userError } = await supabase
+        .from('users')
+        .insert({
           id: authData.user.id,
           email: email.toLowerCase().trim(),
           username: username.toLowerCase().trim(),
-        }),
-      });
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to create user record');
-      }
+      if (userError) throw userError;
 
       setShowSuccess(true);
     } catch (err: any) {
@@ -203,7 +197,7 @@ export default function SignupPage() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/auth/callback`
+          redirectTo: `${window.location.origin}/auth/callback`
         }
       });
 

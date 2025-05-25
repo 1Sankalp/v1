@@ -84,7 +84,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-left px-24 pt-32">
+    <div className="min-h-screen bg-white flex flex-col items-left px-4 md:px-24 pt-16 md:pt-32">
       <div className="w-full max-w-lg">
         <div className="text-left">
           <Link
@@ -93,25 +93,25 @@ export default function LoginPage() {
           >
             <MoveLeft size={24} />
           </Link>
-          <h1 className="text-4xl font-bold mb-4">
+          <h1 className="text-3xl md:text-4xl font-bold mb-4">
             Log in to your Superfolio
           </h1>
 
-          <p className="text-gray-500 text-lg mb-6">
+          <p className="text-gray-500 text-base md:text-lg mb-6">
             Good to have you back!
           </p>
         </div>
 
         {success && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-6 flex items-center text-green-600 bg-green-50 p-4 rounded-xl"
-            >
-              <CheckCircle className="w-5 h-5 mr-2" />
-              {success}
-            </motion.div>
-          )}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 flex items-center text-green-600 bg-green-50 p-4 rounded-xl"
+          >
+            <CheckCircle className="w-5 h-5 mr-2" />
+            {success}
+          </motion.div>
+        )}
 
         {error && (
           <div className="mb-6 text-red-600">
@@ -121,7 +121,7 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="relative">
           <div className="max-w-md">
-            <div className="flex gap-4 mb-6">
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
               <div className="flex-1">
                 <input
                   type="email"
@@ -149,7 +149,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="relative h-[104px]">
+            <div className="relative h-[104px] md:h-[104px]">
               <div className="text-left font-bold my-6">
                 OR
               </div>
@@ -159,7 +159,7 @@ export default function LoginPage() {
                   {!email ? (
                     <motion.div
                       key="social"
-                      className="flex gap-4 w-full absolute inset-0"
+                      className="flex flex-col md:flex-row gap-4 w-full absolute inset-0"
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95 }}
@@ -199,13 +199,13 @@ export default function LoginPage() {
                     >
                       <button
                         type="submit"
-                        disabled={isLoading || !email || !password}
+                        disabled={isLoading}
                         className="w-full bg-[#0085ff] text-white text-sm font-bold py-4 rounded-xl
                                  transition-all duration-300 hover:bg-[#2999ff] active:transform 
                                  active:scale-95 hover:shadow-lg flex items-center justify-center
                                  disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {isLoading ? 'Signing in...' : 'Sign in'}
+                        {isLoading ? 'Logging in...' : 'Log in'}
                       </button>
                     </motion.div>
                   )}
@@ -213,21 +213,14 @@ export default function LoginPage() {
               </div>
             </div>
           </div>
-
-          <motion.div 
-            className="mt-16"
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-          >
-            <Link
-              href="/signup"
-              className="block text-left text-sm text-[#000000]"
-            >
-              or sign up
-            </Link>
-          </motion.div>
         </form>
+
+        <div className="mt-8 text-sm">
+          <span className="text-gray-500">Don't have an account? </span>
+          <Link href="/signup" className="text-[#0085ff] font-bold hover:underline">
+            Sign up
+          </Link>
+        </div>
       </div>
     </div>
   );
