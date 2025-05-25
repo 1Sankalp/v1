@@ -103,15 +103,15 @@ export default function LoginPage() {
         </div>
 
         {success && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 flex items-center text-green-600 bg-green-50 p-4 rounded-xl"
-          >
-            <CheckCircle className="w-5 h-5 mr-2" />
-            {success}
-          </motion.div>
-        )}
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 flex items-center text-green-600 bg-green-50 p-4 rounded-xl"
+            >
+              <CheckCircle className="w-5 h-5 mr-2" />
+              {success}
+            </motion.div>
+          )}
 
         {error && (
           <div className="mb-6 text-red-600">
@@ -213,14 +213,21 @@ export default function LoginPage() {
               </div>
             </div>
           </div>
-        </form>
 
-        <div className="mt-8 text-sm">
-          <span className="text-gray-500">Don't have an account? </span>
-          <Link href="/signup" className="text-[#0085ff] font-bold hover:underline">
-            Sign up
-          </Link>
-        </div>
+          <motion.div 
+            className="mt-16"
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+          >
+            <Link
+              href="/signup"
+              className="block text-left text-sm text-[#000000]"
+            >
+              or sign up
+            </Link>
+          </motion.div>
+        </form>
       </div>
     </div>
   );
