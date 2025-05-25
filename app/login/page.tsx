@@ -221,7 +221,7 @@ export default function LoginPage() {
           </div>
 
           <motion.div 
-            className="mt-16"
+            className="mt-6"
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
