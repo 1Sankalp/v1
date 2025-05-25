@@ -215,7 +215,7 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col items-left px-24 pt-32">
+    <div className="min-h-screen bg-white flex flex-col items-left px-4 md:px-24 pt-16 md:pt-32">
       <AnimatePresence mode="wait">
         {!showAccountCreation && !showSuccess ? (
           <motion.div
@@ -231,10 +231,10 @@ export default function SignupPage() {
               >
                 <MoveLeft size={24} />
               </Link>
-              <h1 className="text-4xl font-bold mb-4">
+              <h1 className="text-3xl md:text-4xl font-bold mb-4">
                 First, claim your Super link! 🚀
               </h1>
-              <p className="text-gray-500 text-lg mb-24">
+              <p className="text-gray-500 text-base md:text-lg mb-24">
                 The good ones are still available!
               </p>
             </div>
@@ -288,7 +288,7 @@ export default function SignupPage() {
                     initial={{ opacity: 0, x: 0 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="absolute w-[448px] -mt-4 bg-[#0085ff] text-white font-bold py-4 px-2 rounded-xl
+                    className="w-full -mt-4 bg-[#0085ff] text-white font-bold py-4 px-2 rounded-xl
                              transition-all duration-300 hover:bg-[#2999ff] active:transform 
                              active:scale-95 hover:shadow-lg"
                   >
@@ -330,12 +330,12 @@ export default function SignupPage() {
                 </button>
               </div>
               <div className="flex flex-col gap-y-4">
-                <p className="text-gray-500 text-lg flex items-center">
+                <p className="text-gray-500 text-base md:text-lg flex items-center">
                   <span className="text-black">superfolio.me/</span>
                   <span className="text-black">{username}</span>
                   <span className="text-black ml-1">is yours!</span>
                 </p>
-                <h1 className="text-4xl font-bold">
+                <h1 className="text-3xl md:text-4xl font-bold">
                   Now, create your account.
                 </h1>
               </div>
@@ -343,7 +343,7 @@ export default function SignupPage() {
 
             <form onSubmit={handleCreateAccount} className="relative">
               <div className="max-w-md mb-20">
-                <div className="flex gap-4 mb-6">
+                <div className="flex flex-col md:flex-row gap-4 mb-6">
                   <div className="flex-1">
                     <input
                       type="email"
@@ -476,14 +476,14 @@ export default function SignupPage() {
             <div className="text-left">
               <div className="flex flex-col gap-y-8">
                 <div className="flex items-center gap-x-3">
-                  <h1 className="text-4xl font-bold">Almost there!</h1>
+                  <h1 className="text-3xl md:text-4xl font-bold">Almost there!</h1>
                   <CheckCircle className="text-green-500 w-8 h-8" />
                 </div>
                 <div className="space-y-6">
-                  <p className="text-gray-800 text-lg">
+                  <p className="text-gray-800 text-base md:text-lg">
                     We've sent you a confirmation email. Please check your inbox and click the link to verify your email address.
                   </p>
-                  <p className="text-gray-800 text-lg">
+                  <p className="text-gray-800 text-base md:text-lg">
                     Once verified, you'll be able to log in and start customizing your profile!
                   </p>
                   <p className="text-gray-500 text-sm">
