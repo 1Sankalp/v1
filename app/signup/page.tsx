@@ -374,6 +374,7 @@ export default function SignupPage() {
                 <div className="h-[120px]">
                   <div className="h-[40px] relative">
                     <AnimatePresence mode="wait">
+                      {/* Commenting out OR text
                       {email.length === 0 && (
                         <motion.div
                           key="or-text"
@@ -386,11 +387,13 @@ export default function SignupPage() {
                           OR
                         </motion.div>
                       )}
+                      */}
                     </AnimatePresence>
                   </div>
 
-                  <div className="relative h-[52px] mt-4">
+                  <div className="relative h-[52px]">
                     <AnimatePresence mode="wait">
+                      {/* Commenting out social buttons
                       {email.length === 0 ? (
                         <motion.div
                           key="social-buttons"
@@ -424,6 +427,7 @@ export default function SignupPage() {
                           </button>
                         </motion.div>
                       ) : (
+                      */}
                         <motion.div
                           key="create-account"
                           className="absolute inset-0"
@@ -443,7 +447,9 @@ export default function SignupPage() {
                             {isLoading ? 'Creating Account...' : 'Create Account'}
                           </button>
                         </motion.div>
+                      {/* Commenting out closing of social buttons condition
                       )}
+                      */}
                     </AnimatePresence>
                   </div>
                 </div>

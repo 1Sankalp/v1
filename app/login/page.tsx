@@ -97,7 +97,7 @@ export default function LoginPage() {
             Log in to your Superfolio
           </h1>
 
-          <p className="text-gray-500 text-base md:text-lg mb-6">
+          <p className="text-gray-500 text-base md:text-lg mb-12">
             Good to have you back!
           </p>
         </div>
@@ -121,7 +121,7 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="relative">
           <div className="max-w-md">
-            <div className="flex flex-col md:flex-row gap-4 mb-6">
+            <div className="flex flex-col md:flex-row gap-4 mb-12">
               <div className="flex-1">
                 <input
                   type="email"
@@ -151,11 +151,14 @@ export default function LoginPage() {
 
             <div className="relative h-[104px] md:h-[104px]">
               <div className="text-left font-bold my-6">
+                {/* Commenting out OR text
                 OR
+                */}
               </div>
 
               <div className="flex gap-4 h-[52px] relative">
                 <AnimatePresence mode="wait">
+                  {/* Commenting out social buttons
                   {!email ? (
                     <motion.div
                       key="social"
@@ -189,6 +192,7 @@ export default function LoginPage() {
                       </button>
                     </motion.div>
                   ) : (
+                  */}
                     <motion.div
                       key="login"
                       className="w-full absolute inset-0"
@@ -208,7 +212,9 @@ export default function LoginPage() {
                         {isLoading ? 'Logging in...' : 'Log in'}
                       </button>
                     </motion.div>
+                  {/* Commenting out closing of social buttons condition
                   )}
+                  */}
                 </AnimatePresence>
               </div>
             </div>
