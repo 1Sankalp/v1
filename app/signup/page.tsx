@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { CheckCircle, XCircle, Eye, EyeOff, MoveLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '../lib/supabase';
+import { Analytics } from '../lib/analytics';
 
 export default function SignupPage() {
   const [username, setUsername] = useState('');
@@ -127,6 +128,8 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isAvailable && validateUsername(username)) {
+      // Track signup started
+      Analytics.track.signupStarted({ username });
       // Store username before showing account creation
       localStorage.setItem('pendingUsername', username);
       setShowAccountCreation(true);
@@ -184,10 +187,23 @@ export default function SignupPage() {
         throw new Error('Failed to create user record');
       }
 
+      // Track successful signup
+      Analytics.track.signupCompleted({
+        userId: authData.user.id,
+        username,
+        email: email.toLowerCase().trim()
+      });
+
       setShowSuccess(true);
     } catch (err: any) {
       console.error('Signup error:', err);
       setError(err.message || 'An error occurred during signup');
+      // Track signup error
+      Analytics.track.signupCompleted({
+        error: err.message,
+        username,
+        email: email.toLowerCase().trim()
+      });
     } finally {
       setIsLoading(false);
     }
