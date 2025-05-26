@@ -42,16 +42,17 @@ export default function LoginPage() {
       if (error) throw error;
 
       if (data?.user) {
-        // Check if email is verified
+        // Get username from users table
         const { data: userData, error: userError } = await supabase
           .from('users')
-          .select('username, emailVerified')
+          .select('username')
           .eq('id', data.user.id)
           .single();
 
         if (userError) throw userError;
 
-        if (!userData.emailVerified) {
+        // Check email verification from Supabase Auth
+        if (!data.user.email_confirmed_at) {
           throw new Error('Please verify your email before logging in. Check your inbox for the verification link.');
         }
 
