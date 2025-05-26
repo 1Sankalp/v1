@@ -39,7 +39,7 @@ export default function Home() {
         >
           A Link in Bio.
           <span style={{ paddingTop: '4px', display: 'block' }}>But for developers.</span>
-          <span className='text-sm font-light md:text-2xl'>The Only Link You Need to Share to Show All Your Projects.</span>
+          <span className='text-xs font-light md:text-2xl'>The only link you need to share to show everything you are and create.</span>
         </motion.h1>
         
         <div className="flex flex-col gap-8 items-center">
