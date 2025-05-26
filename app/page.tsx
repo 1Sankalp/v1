@@ -32,13 +32,14 @@ export default function Home() {
         className="text-center"
       >
         <motion.h1 
-          className="mb-24 max-w-4xl mx-auto text-black text-3xl md:text-6xl"
+          className="mb-16 max-w-4xl mx-auto text-black text-3xl md:text-6xl"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
         >
-          A Single Link
-          <span style={{ paddingTop: '4px', display: 'block' }}>for all your Coding Projects.</span>
+          A Link in Bio.
+          <span style={{ paddingTop: '4px', display: 'block' }}>But for developers.</span>
+          <span className='text-sm font-light md:text-2xl'>The Only Link You Need to Share to Show All Your Projects.</span>
         </motion.h1>
         
         <div className="flex flex-col gap-8 items-center">
