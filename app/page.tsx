@@ -24,52 +24,74 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4 bg-white text-black">
+    <div className="min-h-screen bg-white">
+      <main className="min-h-screen flex flex-col items-center justify-center px-4 bg-white text-black">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="text-center"
+        >
+          <motion.h1 
+            className="mb-16 max-w-4xl mx-auto text-black text-3xl md:text-6xl"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
+            A Link in Bio.
+            <span style={{ paddingTop: '4px', display: 'block' }}>But for developers.</span>
+            <span className='text-xs font-light md:text-2xl'>The only link you need to share to show everything you are and create.</span>
+          </motion.h1>
+          
+          <div className="flex flex-col gap-8 items-center">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+            >
+              <button 
+                onClick={() => handleNavigation('/signup')}
+                className="btn-primary"
+              >
+                Create your Superfolio
+              </button>
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.6 }}
+            >
+              <button 
+                onClick={() => handleNavigation('/login')}
+                className="btn-text"
+              >
+                Log in
+              </button>
+            </motion.div>
+          </div>
+        </motion.div>
+      </main>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="text-center"
+        transition={{ duration: 0.6, delay: 0.8 }}
+        className="w-full max-w-5xl mx-auto px-4 -mt-64 md:-mt-32 mb-4"
       >
-        <motion.h1 
-          className="mb-16 max-w-4xl mx-auto text-black text-3xl md:text-6xl"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          A Link in Bio.
-          <span style={{ paddingTop: '4px', display: 'block' }}>But for developers.</span>
-          <span className='text-xs font-light md:text-2xl'>The only link you need to share to show everything you are and create.</span>
-        </motion.h1>
-        
-        <div className="flex flex-col gap-8 items-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
+        <div className="relative">
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full rounded-2xl shadow-lg"
           >
-            <button 
-              onClick={() => handleNavigation('/signup')}
-              className="btn-primary"
-            >
-              Create your Superfolio
-            </button>
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.6 }}
-          >
-            <button 
-              onClick={() => handleNavigation('/login')}
-              className="btn-text"
-            >
-              Log in
-            </button>
-          </motion.div>
+            <source src="/videos/superfolio_demo.mp4" type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
         </div>
       </motion.div>
-    </main>
+    </div>
   );
 } 
