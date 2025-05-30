@@ -79,13 +79,19 @@ export default function Home() {
         transition={{ duration: 0.6, delay: 0.8 }}
         className="w-full max-w-5xl mx-auto px-4 -mt-64 md:-mt-32 mb-4"
       >
-        <div className="relative">
+        <div className="relative overflow-hidden rounded-2xl bg-white">
           <video
             autoPlay
             loop
             muted
             playsInline
-            className="w-full rounded-2xl shadow-lg"
+            className="w-full h-full shadow-lg outline-none border-none"
+            style={{ 
+              display: 'block',
+              objectFit: 'cover',
+              width: '100%',
+              height: '100%'
+            }}
           >
             <source src="/videos/superfolio_demo.mp4" type="video/mp4" />
             Your browser does not support the video tag.
