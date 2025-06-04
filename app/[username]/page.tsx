@@ -12,6 +12,24 @@ import Link from 'next/link';
 import { Settings2, Trash2, X, Pencil, GripHorizontal, Plus } from 'lucide-react';
 import { SavingIndicator } from '../components/SavingIndicator';
 import { FaviconManager } from '../components/FaviconManager';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // Project interface
 interface Project {
@@ -24,6 +42,7 @@ interface Project {
   githubFavicon?: string;
   otherFavicon?: string;
   title: string;
+  position: number; // Make position required
 }
 
 // Create a stable preview component that behaves like the title editing
@@ -195,7 +214,9 @@ const ProjectCard = memo(({
   onEdit,
   onEditClick,
   isOwnProfile,
-  supabase
+  supabase,
+  dragAttributes,
+  dragListeners
 }: { 
   project: Project;
   onDelete: (id: string) => void;
@@ -203,64 +224,12 @@ const ProjectCard = memo(({
   onEditClick: (project: Project) => void;
   isOwnProfile: boolean;
   supabase: any;
+  dragAttributes?: any;
+  dragListeners?: any;
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [localTitle, setLocalTitle] = useState(project.title);
-
-  const handleTitleSave = useCallback(async (newTitle: string) => {
-    if (!isOwnProfile) return; // Don't save if not owner
-    
-    const title = newTitle.trim() || localTitle;
-    setLocalTitle(title);
-
-    try {
-      // Update title in database
-      const { error } = await supabase
-        .from('projects')
-        .update({ title })
-        .eq('id', project.id);
-
-      if (error) throw error;
-
-      // If database update successful, update local state
-    const updatedProject = {
-      ...project,
-      title
-    };
-    onEdit(updatedProject);
-    setIsEditingTitle(false);
-    } catch (err) {
-      console.error('Error updating project title:', err);
-    }
-  }, [project, localTitle, onEdit, supabase, isOwnProfile]);
-
-  const handleTitleEdit = useCallback((e: React.MouseEvent) => {
-    if (!isOwnProfile) return; // Don't allow editing if not owner
-    e.preventDefault();
-    e.stopPropagation();
-    setIsEditingTitle(true);
-  }, [isOwnProfile]);
-
-  const handleCardClick = useCallback((e: React.MouseEvent) => {
-    // Don't open the project if we're editing the title or clicking buttons
-    if (
-      isEditingTitle ||
-      e.target instanceof Element && 
-      (e.target.closest('button') || 
-       e.target.closest('[data-link-square]') ||
-       e.target.closest('input') ||
-       e.target.closest('.title-edit-area'))
-    ) {
-      return;
-    }
-    window.open(project.projectLink, '_blank');
-  }, [project.projectLink, isEditingTitle]);
-
-  const handleLinkClick = useCallback((e: React.MouseEvent, url: string) => {
-    e.stopPropagation();
-    window.open(url, '_blank');
-  }, []);
 
   const formatUrl = useCallback((url: string): string => {
     try {
@@ -270,45 +239,105 @@ const ProjectCard = memo(({
     }
   }, []);
 
+  const handleTitleSave = useCallback(async (newTitle: string) => {
+    if (!isOwnProfile) return;
+    const title = newTitle.trim() || localTitle;
+    setLocalTitle(title);
+
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ title })
+        .eq('id', project.id);
+
+      if (error) throw error;
+
+      const updatedProject = { ...project, title };
+      onEdit(updatedProject);
+      setIsEditingTitle(false);
+    } catch (err) {
+      console.error('Error updating project title:', err);
+    }
+  }, [project, localTitle, onEdit, supabase, isOwnProfile]);
+
+  const handleTitleEdit = useCallback((e: React.MouseEvent) => {
+    if (!isOwnProfile) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsEditingTitle(true);
+  }, [isOwnProfile]);
+
+  const handleLinkClick = useCallback((e: React.MouseEvent, url: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.open(url, '_blank');
+  }, []);
+
+  const handleDeleteClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDelete(project.id);
+  }, [project.id, onDelete]);
+
+  const handleEditButtonClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onEditClick(project);
+  }, [project, onEditClick]);
+
   return (
     <div
-      className="relative bg-white border border-gray-200 rounded-3xl p-6 cursor-pointer"
+      className="relative bg-white border border-gray-200 rounded-3xl p-6"
       style={{ height: '220px' }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={handleCardClick}
     >
+      {/* Drag Handle */}
+      {isOwnProfile && (
+        <AnimatePresence>
+          {isHovered && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute top-1 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 cursor-grab active:cursor-grabbing"
+              {...dragAttributes}
+              {...dragListeners}
+            >
+              <div className="bg-white p-1 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                <GripHorizontal size={20} className="text-gray-500 hover:text-black transition-colors" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
+
       {isOwnProfile && (
         <AnimatePresence>
           {isHovered && (
             <>
-              <motion.button
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute -top-2 -left-2 text-gray-500 hover:text-black transition-colors duration-300 p-2 bg-white rounded-full shadow-sm hover:shadow-md z-10 cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(project.id);
-                }}
-              >
-                <Trash2 size={20} />
-              </motion.button>
-              <motion.button
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute -top-2 -right-2 text-gray-500 hover:text-black transition-colors duration-300 p-2 bg-white rounded-full shadow-sm hover:shadow-md z-10 cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                    onEditClick(project);
-                }}
-              >
-                <div className="p-0">
+              <div className="absolute -top-2 -left-2 z-50">
+                <motion.button
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="text-gray-500 hover:text-black transition-colors duration-300 p-2 bg-white rounded-full shadow-sm hover:shadow-md cursor-pointer"
+                  onClick={handleDeleteClick}
+                >
+                  <Trash2 size={20} />
+                </motion.button>
+              </div>
+              <div className="absolute -top-2 -right-2 z-50">
+                <motion.button
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="text-gray-500 hover:text-black transition-colors duration-300 p-2 bg-white rounded-full shadow-sm hover:shadow-md cursor-pointer"
+                  onClick={handleEditButtonClick}
+                >
                   <Pencil size={20} />
-                </div>
-              </motion.button>
+                </motion.button>
+              </div>
             </>
           )}
         </AnimatePresence>
@@ -340,22 +369,18 @@ const ProjectCard = memo(({
       </div>
 
       {/* Title */}
-      <div className="mb-2 title-edit-area" style={{ width: 'calc(100% - 180px)' }} onClick={(e) => e.stopPropagation()}>
+      <div className="mb-2" style={{ width: 'calc(100% - 180px)' }}>
         {isEditingTitle && isOwnProfile ? (
           <input
             type="text"
             defaultValue={localTitle}
-            onBlur={(e) => {
-              e.stopPropagation();
-              handleTitleSave(e.target.value);
-            }}
+            onBlur={(e) => handleTitleSave(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
-                e.stopPropagation();
                 handleTitleSave(e.currentTarget.value);
               } else if (e.key === 'Escape') {
-                e.stopPropagation();
+                e.preventDefault();
                 setIsEditingTitle(false);
               }
             }}
@@ -366,12 +391,7 @@ const ProjectCard = memo(({
         ) : (
           <h3 
             className={`text-lg font-bold truncate p-0 ${isOwnProfile ? 'cursor-text hover:bg-gray-100 rounded-lg transition-colors' : 'cursor-default'}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (isOwnProfile) {
-                handleTitleEdit(e);
-              }
-            }}
+            onClick={handleTitleEdit}
             title={localTitle}
           >
             {localTitle}
@@ -386,7 +406,7 @@ const ProjectCard = memo(({
           target="_blank"
           rel="noopener noreferrer"
           className="text-gray-600 block mb-2 text-xs truncate"
-          onClick={e => e.stopPropagation()}
+          onClick={(e) => handleLinkClick(e, project.projectLink)}
         >
           {formatUrl(project.projectLink)}
         </a>
@@ -394,29 +414,81 @@ const ProjectCard = memo(({
 
       {/* Description */}
       <div style={{ width: '100%' }} className="flex-grow">
-        <p className="text-gray-500 text-xs leading-relaxed break-words overflow-hidden line-clamp-3">{project.description}</p>
+        <p className="text-gray-500 text-xs leading-relaxed break-words overflow-hidden line-clamp-3">
+          {project.description}
+        </p>
       </div>
 
       {/* Preview */}
-      <ProjectPreview url={project.projectLink} />
+      <div className="preview-area">
+        <ProjectPreview url={project.projectLink} />
+      </div>
     </div>
   );
-}, (prevProps, nextProps) => {
-  // Deep compare project objects, but exclude title from comparison
-  const prevProject = prevProps.project;
-  const nextProject = nextProps.project;
+});
+
+// Add SortableProjectCard component
+const SortableProjectCard = memo(({ 
+  project,
+  onDelete,
+  onEdit,
+  onEditClick,
+  isOwnProfile,
+  supabase
+}: { 
+  project: Project;
+  onDelete: (id: string) => void;
+  onEdit: (project: Project) => void;
+  onEditClick: (project: Project) => void;
+  isOwnProfile: boolean;
+  supabase: any;
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({
+    id: project.id,
+    transition: {
+      duration: 200,
+      easing: "ease"
+    }
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: transition || "transform 200ms ease",
+    zIndex: isDragging ? 1 : 0,
+    opacity: isDragging ? 0.8 : 1,
+  };
+
   return (
-    prevProject.id === nextProject.id &&
-    prevProject.projectLink === nextProject.projectLink &&
-    prevProject.description === nextProject.description &&
-    prevProject.projectFavicon === nextProject.projectFavicon &&
-    prevProject.githubLink === nextProject.githubLink &&
-    prevProject.githubFavicon === nextProject.githubFavicon &&
-    prevProject.otherLink === nextProject.otherLink &&
-    prevProject.otherFavicon === nextProject.otherFavicon &&
-    prevProps.onDelete === nextProps.onDelete &&
-    prevProps.onEdit === nextProps.onEdit &&
-    prevProps.onEditClick === nextProps.onEditClick
+    <motion.div 
+      ref={setNodeRef} 
+      style={style}
+      layout
+      layoutId={project.id}
+      transition={{
+        layout: {
+          duration: 0.2,
+          ease: "easeOut"
+        }
+      }}
+    >
+      <ProjectCard
+        project={project}
+        onDelete={onDelete}
+        onEdit={onEdit}
+        onEditClick={onEditClick}
+        isOwnProfile={isOwnProfile}
+        supabase={supabase}
+        dragAttributes={attributes}
+        dragListeners={listeners}
+      />
+    </motion.div>
   );
 });
 
@@ -536,7 +608,7 @@ interface UserProfile {
 export default function ProfilePage({ params }: { params: { username: string } }) {
   const router = useRouter();
   const supabase = createClient();
-  const supabasePublic = createClient();
+  const anonClient = createClient();
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -798,6 +870,10 @@ export default function ProfilePage({ params }: { params: { username: string } }
     if (!isFormValid() || !profile) return;
 
     const title = await getPageTitle(projectLink);
+    
+    // Get the highest position value
+    const maxPosition = Math.max(...projects.map(p => p.position ?? -1), -1);
+    
     const newProject: Project = {
       id: editingProject?.id || Date.now().toString(),
       projectLink,
@@ -807,7 +883,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
       projectFavicon,
       githubFavicon: githubLink ? githubFavicon : undefined,
       otherFavicon: otherLink ? otherFavicon : undefined,
-      title
+      title,
+      position: maxPosition + 1 // Add at the end
     };
 
     try {
@@ -822,6 +899,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
             github_link: newProject.githubLink,
             other_link: newProject.otherLink,
             image_url: newProject.projectFavicon,
+            position: editingProject.position, // Keep existing position
             updated_at: new Date().toISOString()
           })
           .eq('id', editingProject.id);
@@ -840,7 +918,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
             link: newProject.projectLink,
             github_link: newProject.githubLink,
             other_link: newProject.otherLink,
-            image_url: newProject.projectFavicon
+            image_url: newProject.projectFavicon,
+            position: newProject.position
           })
           .select()
           .single();
@@ -856,7 +935,6 @@ export default function ProfilePage({ params }: { params: { username: string } }
       showSavingIndicator();
     } catch (err) {
       console.error('Error saving project:', err);
-      // You might want to show an error message to the user here
     }
   };
 
@@ -1452,8 +1530,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
       setError(null);
       
       try {
-        // Get the user data using public client
-        const { data: userData, error: userError } = await supabasePublic
+        // Get the user data using anon client for consistent caching
+        const { data: userData, error: userError } = await anonClient
           .from('users')
           .select('*')
           .eq('username', params.username)
@@ -1473,30 +1551,56 @@ export default function ProfilePage({ params }: { params: { username: string } }
         const isOwner = session?.user?.id === userData.id;
         setIsOwnProfile(isOwner);
 
-        // Fetch projects
-        const { data: projectsData, error: projectsError } = await supabasePublic
+        // Fetch projects with position ordering using anon client for reads
+        const { data: projectsData, error: projectsError } = await anonClient
           .from('projects')
           .select('*')
           .eq('user_id', userData.id)
+          .order('position', { ascending: true })
           .order('created_at', { ascending: false });
 
         if (projectsError) throw projectsError;
 
-        // Transform projects
-        const finalProjects = await Promise.all((projectsData || []).map(async p => ({
+        console.log('Fetched projects with positions:', projectsData.map(p => ({
           id: p.id,
-          title: p.title || '',
-          description: p.description || '',
-          projectLink: p.link || '',
-          githubLink: p.github_link || undefined,
-          otherLink: p.other_link || undefined,
-          projectFavicon: p.image_url || await getFavicon(p.link),
-          githubFavicon: p.github_link ? await getFavicon(p.github_link) : undefined,
-          otherFavicon: p.other_link ? await getFavicon(p.other_link) : undefined
+          title: p.title,
+          position: p.position
         })));
 
-        // Fetch social links
-        const { data: socialsData, error: socialsError } = await supabasePublic
+        // Transform projects and ensure each has a position
+        const finalProjects = await Promise.all((projectsData || []).map(async (p, index) => {
+          // If position is null and user is owner, update it
+          if (p.position === null && isOwner) {
+            try {
+              // Use authenticated client for updates
+              await supabase
+                .from('projects')
+                .update({ position: index })
+                .eq('id', p.id);
+            } catch (err) {
+              console.error('Error updating project position:', err);
+            }
+          }
+
+          return {
+            id: p.id,
+            title: p.title || '',
+            description: p.description || '',
+            projectLink: p.link || '',
+            githubLink: p.github_link || undefined,
+            otherLink: p.other_link || undefined,
+            projectFavicon: p.image_url || await getFavicon(p.link),
+            githubFavicon: p.github_link ? await getFavicon(p.github_link) : undefined,
+            otherFavicon: p.other_link ? await getFavicon(p.other_link) : undefined,
+            position: p.position !== null ? p.position : index
+          };
+        }));
+
+        // Sort by position before setting state
+        setProjects(finalProjects.sort((a, b) => a.position - b.position));
+
+        // Fetch social links using anon client for consistent caching
+        const { data: socialsData, error: socialsError } = await anonClient
           .from('social_links')
           .select('*')
           .eq('user_id', userData.id)
@@ -1515,7 +1619,6 @@ export default function ProfilePage({ params }: { params: { username: string } }
           })
         );
 
-        setProjects(finalProjects);
         setSocialLinks(finalSocialLinks);
 
         // Initialize socialInputs with empty slots
@@ -1690,6 +1793,101 @@ export default function ProfilePage({ params }: { params: { username: string } }
     };
   }, [profile, name, bio]);
 
+  // Add sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Add handler for drag end
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over || active.id === over.id) return;
+
+    try {
+      setProjects((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        const newItems = arrayMove(items, oldIndex, newIndex);
+
+        // Only attempt to save if user is owner
+        if (profile?.id && isOwnProfile) {
+          (async () => {
+            try {
+              console.log('Updating positions for projects:', newItems.map((item, index) => ({
+                id: item.id,
+                position: index
+              })));
+
+              // Use authenticated client for updates
+              const { error: updateError } = await supabase
+                .from('projects')
+                .upsert(
+                  newItems.map((item, index) => ({
+                    id: item.id,
+                    position: index,
+                    updated_at: new Date().toISOString()
+                  })),
+                  {
+                    onConflict: 'id'
+                  }
+                );
+
+              if (updateError) {
+                console.error('Error updating all positions:', updateError);
+                
+                // If bulk update fails, try updating one by one
+                for (let i = 0; i < newItems.length; i++) {
+                  const { error: singleError } = await supabase
+                    .from('projects')
+                    .update({
+                      position: i,
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq('id', newItems[i].id);
+                  
+                  if (singleError) {
+                    console.error(`Error updating position for project ${newItems[i].id}:`, singleError);
+                  } else {
+                    console.log(`Successfully updated position for project ${newItems[i].id} to ${i}`);
+                  }
+                }
+              } else {
+                console.log('Successfully updated all positions at once');
+                
+                // Force a refresh of the projects data to ensure cache is updated
+                const { data: refreshedData } = await anonClient
+                  .from('projects')
+                  .select('*')
+                  .eq('user_id', profile.id)
+                  .order('position', { ascending: true });
+
+                if (refreshedData) {
+                  console.log('Refreshed projects data:', refreshedData.map(p => ({
+                    id: p.id,
+                    title: p.title,
+                    position: p.position
+                  })));
+                }
+              }
+              
+              showSavingIndicator();
+            } catch (error: unknown) {
+              console.error('Error in position update transaction:', error);
+            }
+          })();
+        }
+
+        return newItems;
+      });
+    } catch (error) {
+      console.error('Error in handleDragEnd:', error);
+    }
+  }, [profile?.id, isOwnProfile, showSavingIndicator]);
+
   // Only render content after mounting
   if (!mounted) {
     return null;
@@ -1699,248 +1897,287 @@ export default function ProfilePage({ params }: { params: { username: string } }
     <>
       {mounted && profile?.avatar_url && <FaviconManager avatar={profile.avatar_url} />}
       <div className="min-h-screen md:h-screen bg-white p-8 overflow-y-auto md:overflow-hidden pt-12 md:px-12 px-4">
-        {loading ? (
-          <div className="flex items-center justify-center h-full">
+      {loading ? (
+        <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
-          </div>
-        ) : error ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-red-500">{error}</p>
-          </div>
+      </div>
+      ) : error ? (
+        <div className="flex items-center justify-center h-full">
+          <p className="text-red-500">{error}</p>
+        </div>
         ) : profile ? (
           <>
             <div className="max-w-full mx-auto flex flex-col md:flex-row h-full">
-              {/* Left Side: Profile Section */}
+          {/* Left Side: Profile Section */}
               <div className="w-full md:w-[400px] flex-shrink-0 mb-8 md:mb-0">
-                <div className="space-y-4">
-                  {/* Avatar Upload */}
+            <div className="space-y-4">
+              {/* Avatar Upload */}
                   {(isOwnProfile || avatar) && (
-                    <div 
-                      onClick={isOwnProfile ? handleAvatarClick : undefined}
-                      className={`w-48 h-48 rounded-full ${!avatar ? 'border-2 border-dashed border-gray-300' : ''} 
-                               flex items-center justify-center relative group ${isOwnProfile ? 'cursor-pointer' : ''}`}
-                    >
-                      {avatar ? (
-                        <>
-                          <div className="w-full absolute inset-0">
-                            <Image
-                              src={avatar}
-                              alt="Profile"
-                              width={192}
-                              height={192}
-                              className="object-cover w-full h-full rounded-full"
-                            />
-                          </div>
-                          {isOwnProfile && (
-                            <div className="mt-32 flex justify-center ml-32 relative z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                              <button
-                                onClick={handleDeleteAvatar}
-                                className="bg-white p-2 rounded-full text-gray-500 hover:text-black shadow-md transition-colors duration-300"
-                              >
-                                <Trash2 size={20} />
-                              </button>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-gray-400 text-md font-bold group-hover:scale-105 transition-transform duration-200">
-                          {isOwnProfile ? 'Add avatar' : ''}
-                        </span>
-                      )}
-                      {isOwnProfile && (
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleAvatarChange}
-                          className="hidden"
-                        />
-                      )}
+              <div 
+                onClick={isOwnProfile ? handleAvatarClick : undefined}
+                className={`w-48 h-48 rounded-full ${!avatar ? 'border-2 border-dashed border-gray-300' : ''} 
+                         flex items-center justify-center relative group ${isOwnProfile ? 'cursor-pointer' : ''}`}
+              >
+                {avatar ? (
+                  <>
+                    <div className="w-full absolute inset-0">
+                      <Image
+                        src={avatar}
+                        alt="Profile"
+                        width={192}
+                        height={192}
+                        className="object-cover w-full h-full rounded-full"
+                      />
                     </div>
+                    {isOwnProfile && (
+                      <div className="mt-32 flex justify-center ml-32 relative z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <button
+                          onClick={handleDeleteAvatar}
+                          className="bg-white p-2 rounded-full text-gray-500 hover:text-black shadow-md transition-colors duration-300"
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-gray-400 text-md font-bold group-hover:scale-105 transition-transform duration-200">
+                    {isOwnProfile ? 'Add avatar' : ''}
+                  </span>
+                )}
+                {isOwnProfile && (
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
+                )}
+              </div>
                   )}
 
-                  {/* Name Input */}
+              {/* Name Input */}
                   <div className="w-full">
-                    <textarea
-                      ref={nameTextareaRef}
-                      value={name}
-                      onChange={handleNameChange}
-                      placeholder={isOwnProfile ? "Your name" : ""}
-                      readOnly={!isOwnProfile}
+                <textarea
+                  ref={nameTextareaRef}
+                  value={name}
+                  onChange={handleNameChange}
+                  placeholder={isOwnProfile ? "Your name" : ""}
+                  readOnly={!isOwnProfile}
                       className={`text-3xl font-bold w-full bg-transparent border-none outline-none resize-none
                                placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
                       style={{ 
                         minHeight: '1.2em',
                         paddingBottom: 0
                       }}
-                    />
-                  </div>
+                />
+              </div>
 
-                  {/* Bio Input */}
+              {/* Bio Input */}
                   <div className="w-full" style={{ marginTop: '-12px' }}>
-                    <textarea
-                      ref={textareaRef}
-                      value={bio}
-                      onChange={handleBioChange}
-                      placeholder={isOwnProfile ? "About you..." : ""}
-                      readOnly={!isOwnProfile}
+                <textarea
+                  ref={textareaRef}
+                  value={bio}
+                  onChange={handleBioChange}
+                  placeholder={isOwnProfile ? "About you..." : ""}
+                  readOnly={!isOwnProfile}
                       className={`text-xl w-full bg-transparent border-none outline-none resize-none
                                placeholder:text-gray-300 whitespace-pre-wrap break-words ${!isOwnProfile ? 'cursor-default' : ''}`}
                       style={{ 
                         minHeight: '2.5rem',
                         paddingTop: 0
                       }}
-                      onKeyDown={(e) => {
-                        if (!isOwnProfile) return;
-                        const maxBioLines = 13 - (nameLines - 1);
+                  onKeyDown={(e) => {
+                    if (!isOwnProfile) return;
+                    const maxBioLines = 13 - (nameLines - 1);
                         const currentLines = bio.split('\n').length;
                         if (e.key === 'Enter' && currentLines >= maxBioLines) {
-                          e.preventDefault();
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Side: Projects Section */}
-              <div className="flex-grow md:pl-0 flex flex-col h-full w-full">
-                {/* Add Project Button */}
-                <div className="flex justify-end mb-8 flex-shrink-0">
-                  <div className="flex items-center gap-4 flex-wrap justify-end">
-                    {/* Social Icons */}
-                    <div className="flex items-center gap-4 flex-wrap justify-end">
-                      {socialLinks.map((social, index) => (
-                        <div 
-                          key={index}
-                          onClick={() => handleSocialClick(social.url)}
-                          className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden cursor-pointer transition-colors"
-                        >
-                          <img src={social.favicon} alt="" className="w-12 h-12" />
-                        </div>
-                      ))}
-                    </div>
-                    {isOwnProfile && (
-                      <button 
-                        onClick={() => setShowSocialLinks(true)}
-                        className="bg-[#0085ff] text-white font-bold px-6 py-3 rounded-2xl 
-                                 hover:bg-[#2999ff] transition-colors duration-300"
-                      >
-                        {socialLinks.length > 0 ? 'Edit Socials' : 'Add Socials'}
-                      </button>
-                    )}
-                    {isOwnProfile && (
-                      <button 
-                        onClick={handleAddProjectClick}
-                        className="bg-[#0085ff] text-white font-bold px-6 py-3 rounded-2xl
-                                 hover:bg-[#2999ff] transition-colors duration-300"
-                      >
-                        Add Project
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Projects Grid - Scrollable */}
-                <div className="pr-0 flex-grow overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                  {/* Desktop Grid */}
-                  <motion.div
-                    className="hidden md:grid md:grid-cols-2 md:gap-6 relative pb-6" 
-                    style={{ 
-                      gridTemplateColumns: "repeat(2, 400px)",
-                      justifyContent: "end",
-                      columnGap: "28px"
-                    }}
-                    layout
-                  >
-                    {projects.map((project) => (
-                      <motion.div
-                        key={project.id}
-                        initial={{ opacity: 1}}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0}}
-                        layout
-                        layoutId={project.id}
-                        className="w-[400px]"
-                      >
-                        <ProjectCard 
-                          project={project}
-                          onDelete={handleDeleteProject}
-                          onEdit={handleEditProject}
-                          isOwnProfile={isOwnProfile}
-                          supabase={supabase}
-                          onEditClick={(project) => {
-                            if (!isOwnProfile || document.activeElement?.tagName.toLowerCase() === 'input') return;
-                            setShowAddProject(true);
-                            setEditingProject(project);
-                            setProjectLink(project.projectLink);
-                            setGithubLink(project.githubLink || '');
-                            setOtherLink(project.otherLink || '');
-                            setProjectDescription(project.description);
-                            setProjectFavicon(project.projectFavicon);
-                            setGithubFavicon(project.githubFavicon || '');
-                            setOtherFavicon(project.otherFavicon || '');
-                          }}
-                        />
-                      </motion.div>
-                    ))}
-                  </motion.div>
-
-                  {/* Mobile Projects Grid */}
-                  <div className="md:hidden flex flex-col gap-6 pb-20">
-                    {projects.map((project) => (
-                      <div
-                        key={project.id}
-                        className="w-full"
-                      >
-                        <ProjectCard 
-                          project={project}
-                          onDelete={handleDeleteProject}
-                          onEdit={handleEditProject}
-                          isOwnProfile={isOwnProfile}
-                          supabase={supabase}
-                          onEditClick={(project) => {
-                            if (!isOwnProfile || document.activeElement?.tagName.toLowerCase() === 'input') return;
-                            setShowAddProject(true);
-                            setEditingProject(project);
-                            setProjectLink(project.projectLink);
-                            setGithubLink(project.githubLink || '');
-                            setOtherLink(project.otherLink || '');
-                            setProjectDescription(project.description);
-                            setProjectFavicon(project.projectFavicon);
-                            setGithubFavicon(project.githubFavicon || '');
-                            setOtherFavicon(project.otherFavicon || '');
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                      e.preventDefault();
+                    }
+                  }}
+                />
               </div>
             </div>
+          </div>
 
-            {/* Settings, Saving Indicator and Logout */}
+          {/* Right Side: Projects Section */}
+              <div className="flex-grow md:pl-0 flex flex-col h-full w-full">
+            {/* Add Project Button */}
+            <div className="flex justify-end mb-8 flex-shrink-0">
+                  <div className="flex items-center gap-4 flex-wrap justify-end">
+                {/* Social Icons */}
+                    <div className="flex items-center gap-4 flex-wrap justify-end">
+                {socialLinks.map((social, index) => (
+                  <div 
+                    key={index}
+                    onClick={() => handleSocialClick(social.url)}
+                    className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden cursor-pointer transition-colors"
+                  >
+                    <img src={social.favicon} alt="" className="w-12 h-12" />
+                  </div>
+                ))}
+                    </div>
+                {isOwnProfile && (
+                  <button 
+                    onClick={() => setShowSocialLinks(true)}
+                    className="bg-[#0085ff] text-white font-bold px-6 py-3 rounded-2xl 
+                                 hover:bg-[#2999ff] transition-colors duration-300"
+                  >
+                    {socialLinks.length > 0 ? 'Edit Socials' : 'Add Socials'}
+                  </button>
+                )}
+              {isOwnProfile && (
+                <button 
+                  onClick={handleAddProjectClick}
+                  className="bg-[#0085ff] text-white font-bold px-6 py-3 rounded-2xl 
+                           hover:bg-[#2999ff] transition-colors duration-300"
+                >
+                  Add Project
+                </button>
+              )}
+                  </div>
+            </div>
+
+            {/* Projects Grid - Scrollable */}
+            <div className="pr-0 flex-grow overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                  {/* Desktop Grid */}
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+          <motion.div
+                      className="hidden md:grid md:grid-cols-2 md:gap-6 relative pb-6" 
+                style={{ 
+                  gridTemplateColumns: "repeat(2, 400px)",
+                  justifyContent: "end",
+                  columnGap: "28px"
+                }}
+                layout
+                    >
+                      <SortableContext
+                        items={projects.map(p => p.id)}
+                        strategy={verticalListSortingStrategy}
+              >
+                {projects.map((project) => (
+                  <motion.div
+                    key={project.id}
+                            initial={{ opacity: 1 }}
+                    animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                    layout
+                            layoutId={`container-${project.id}`}
+                            transition={{
+                              layout: {
+                                duration: 0.2,
+                                ease: "easeOut"
+                              }
+                            }}
+                    className="w-[400px]"
+                  >
+                            <SortableProjectCard 
+                      project={project}
+                      onDelete={handleDeleteProject}
+                      onEdit={handleEditProject}
+                      isOwnProfile={isOwnProfile}
+                              supabase={supabase}
+                      onEditClick={(project) => {
+                                if (!isOwnProfile || document.activeElement?.tagName.toLowerCase() === 'input') return;
+                        setShowAddProject(true);
+                        setEditingProject(project);
+                        setProjectLink(project.projectLink);
+                        setGithubLink(project.githubLink || '');
+                        setOtherLink(project.otherLink || '');
+                        setProjectDescription(project.description);
+                        setProjectFavicon(project.projectFavicon);
+                        setGithubFavicon(project.githubFavicon || '');
+                        setOtherFavicon(project.otherFavicon || '');
+                      }}
+                    />
+                  </motion.div>
+                ))}
+                      </SortableContext>
+              </motion.div>
+                  </DndContext>
+
+                  {/* Mobile Projects Grid */}
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <motion.div 
+                      className="md:hidden flex flex-col gap-6 pb-20"
+                      layout
+                    >
+                      <SortableContext
+                        items={projects.map(p => p.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {projects.map((project) => (
+                          <motion.div
+                            key={project.id}
+                            layout
+                            layoutId={`container-mobile-${project.id}`}
+                            transition={{
+                              layout: {
+                                duration: 0.2,
+                                ease: "easeOut"
+                              }
+                            }}
+                            className="w-full"
+                          >
+                            <SortableProjectCard 
+                              project={project}
+                              onDelete={handleDeleteProject}
+                              onEdit={handleEditProject}
+                              isOwnProfile={isOwnProfile}
+                              supabase={supabase}
+                              onEditClick={(project) => {
+                                if (!isOwnProfile || document.activeElement?.tagName.toLowerCase() === 'input') return;
+                                setShowAddProject(true);
+                                setEditingProject(project);
+                                setProjectLink(project.projectLink);
+                                setGithubLink(project.githubLink || '');
+                                setOtherLink(project.otherLink || '');
+                                setProjectDescription(project.description);
+                                setProjectFavicon(project.projectFavicon);
+                                setGithubFavicon(project.githubFavicon || '');
+                                setOtherFavicon(project.otherFavicon || '');
+                              }}
+                            />
+                          </motion.div>
+                        ))}
+                      </SortableContext>
+                    </motion.div>
+                  </DndContext>
+              </div>
+              </div>
+        </div>
+
+      {/* Settings, Saving Indicator and Logout */}
             <div className="absolute top-4 right-4 md:right-12 flex items-center gap-4">
               <AnimatePresence mode="wait">
-                {isSaving && isOwnProfile && <SavingIndicator />}
-              </AnimatePresence>
+          {isSaving && isOwnProfile && <SavingIndicator />}
+        </AnimatePresence>
               {isOwnProfile ? (
-                <>
-                  {showLogout && (
-                    <button
-                      onClick={handleLogout}
-                      className="text-xs text-gray-500 hover:text-black transition-colors px-2 py-1 rounded-lg border border-gray-200"
-                    >
-                      logout
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setShowLogout(!showLogout)}
-                    className="text-gray-500 hover:text-black transition-colors"
-                  >
-                    <Settings2 size={20} />
-                  </button>
-                </>
+          <>
+            {showLogout && (
+              <button
+                onClick={handleLogout}
+                className="text-xs text-gray-500 hover:text-black transition-colors px-2 py-1 rounded-lg border border-gray-200"
+              >
+                logout
+              </button>
+            )}
+            <button
+              onClick={() => setShowLogout(!showLogout)}
+              className="text-gray-500 hover:text-black transition-colors"
+            >
+              <Settings2 size={20} />
+            </button>
+          </>
               ) : (
                 <div className="flex items-center gap-4">
                   {loggedInUsername && (
@@ -1961,222 +2198,222 @@ export default function ProfilePage({ params }: { params: { username: string } }
                     </Link>
                   )}
                 </div>
-              )}
-            </div>
+        )}
+      </div>
 
-            {/* Add/Edit Project Modal */}
-            <AnimatePresence>
-              {showAddProject && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 bg-white bg-opacity-25 flex items-center justify-center z-50"
-                >
-                  <motion.div
-                    initial={{ scale: 0.95 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0.95 }}
-                    className="bg-white border border-gray-200 rounded-3xl p-8 w-[500px] relative"
-                  >
-                    {/* Delete/Close Button */}
-                    <button
-                      onClick={closeAddProject}
-                      className="absolute top-6 left-6 text-gray-500 hover:text-black transition-colors duration-300"
-                    >
-                      <X size={24} />
-                    </button>
+      {/* Add/Edit Project Modal */}
+      <AnimatePresence>
+        {showAddProject && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-white bg-opacity-25 flex items-center justify-center z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-white border border-gray-200 rounded-3xl p-8 w-[500px] relative"
+            >
+              {/* Delete/Close Button */}
+              <button
+                onClick={closeAddProject}
+                className="absolute top-6 left-6 text-gray-500 hover:text-black transition-colors duration-300"
+              >
+                <X size={24} />
+              </button>
 
-                    {/* Form Fields */}
-                    <div className="space-y-6 mt-8">
-                      {/* Project Link */}
-                      <div className="relative">
-                        <div className="flex items-center gap-4">
-                          <div className="flex-grow">
-                            <input
-                              type="text"
-                              value={projectLink}
-                              onChange={(e) => handleProjectLinkChange(e.target.value)}
-                              placeholder="Project link/ live demo link*"
-                              className="w-full p-4 rounded-2xl border border-gray-200 outline-none transition-colors"
-                            />
-                          </div>
-                          <div className="w-12 h-12 rounded-xl border border-gray-200 flex items-center justify-center overflow-hidden">
-                            {isFaviconLoading ? (
-                              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-400" />
-                            ) : projectFavicon ? (
-                              <img src={projectFavicon} alt="" className="w-12 h-12" />
-                            ) : null}
-                          </div>
-                        </div>
-                        {projectLinkError && (
-                          <p className="absolute -bottom-5 left-1 text-red-500 text-sm">{projectLinkError}</p>
-                        )}
-                      </div>
-
-                      {/* Github Link */}
-                      <div className="relative">
-                        <div className="flex items-center gap-4">
-                          <div className="flex-grow">
-                            <input
-                              type="text"
-                              value={githubLink}
-                              onChange={(e) => handleLinkChange(e.target.value, setGithubLink, setGithubLinkError)}
-                              placeholder="Github link/ code repository link"
-                              className="w-full p-4 rounded-2xl border border-gray-200 outline-none transition-colors"
-                            />
-                          </div>
-                          <div className="w-12 h-12 rounded-xl border border-gray-200 flex items-center justify-center overflow-hidden">
-                            {githubFavicon && (
-                              <img src={githubFavicon} alt="" className="w-12 h-12" />
-                            )}
-                          </div>
-                        </div>
-                        {githubLinkError && (
-                          <p className="absolute -bottom-5 left-1 text-red-500 text-sm">{githubLinkError}</p>
-                        )}
-                      </div>
-
-                      {/* Other Link */}
-                      <div className="relative">
-                        <div className="flex items-center gap-4">
-                          <div className="flex-grow">
-                            <input
-                              type="text"
-                              value={otherLink}
-                              onChange={(e) => handleLinkChange(e.target.value, setOtherLink, setOtherLinkError)}
-                              placeholder="Any other link"
-                              className="w-full p-4 rounded-2xl border border-gray-200 outline-none transition-colors"
-                            />
-                          </div>
-                          <div className="w-12 h-12 rounded-xl border border-gray-200 flex items-center justify-center overflow-hidden">
-                            {otherFavicon && (
-                              <img src={otherFavicon} alt="" className="w-12 h-12" />
-                            )}
-                          </div>
-                        </div>
-                        {otherLinkError && (
-                          <p className="absolute -bottom-5 left-1 text-red-500 text-sm">{otherLinkError}</p>
-                        )}
-                      </div>
-
-                      {/* Project Description */}
-                      <div className="relative">
-                        <textarea
-                          value={projectDescription}
-                          onChange={(e) => {
-                            if (e.target.value.length <= 195) {
-                              setProjectDescription(e.target.value);
-                            }
-                          }}
-                          placeholder="A short bio about the project"
-                          className="w-full p-4 rounded-2xl border border-gray-200 outline-none transition-colors resize-none h-36"
-                        />
-                        <span className="absolute bottom-4 right-4 text-sm text-gray-400">
-                          {projectDescription.length}/195
-                        </span>
-                      </div>
+              {/* Form Fields */}
+              <div className="space-y-6 mt-8">
+                {/* Project Link */}
+                <div className="relative">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-grow">
+                      <input
+                        type="text"
+                        value={projectLink}
+                        onChange={(e) => handleProjectLinkChange(e.target.value)}
+                        placeholder="Project link/ live demo link*"
+                        className="w-full p-4 rounded-2xl border border-gray-200 outline-none transition-colors"
+                      />
                     </div>
-
-                    {/* Updated buttons */}
-                    <div className="flex justify-end gap-4 mt-6">
-                      <button
-                        onClick={editingProject ? handleAddProject : handleAddProject}
-                        disabled={!isFormValid()}
-                        className={`font-bold px-8 py-3 rounded-2xl transition-colors duration-300 ${
-                          isFormValid()
-                            ? 'bg-[#0085ff] text-white hover:bg-[#2999ff]'
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        }`}
-                      >
-                        {editingProject ? 'Save' : 'Add'}
-                    </button>
+                    <div className="w-12 h-12 rounded-xl border border-gray-200 flex items-center justify-center overflow-hidden">
+                      {isFaviconLoading ? (
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-400" />
+                      ) : projectFavicon ? (
+                        <img src={projectFavicon} alt="" className="w-12 h-12" />
+                      ) : null}
+                    </div>
                   </div>
-                </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  {projectLinkError && (
+                    <p className="absolute -bottom-5 left-1 text-red-500 text-sm">{projectLinkError}</p>
+                  )}
+                </div>
 
-            {/* Social Links Modal */}
-            <AnimatePresence>
-              {showSocialLinks && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 bg-white bg-opacity-25 flex items-center justify-center z-50"
+                {/* Github Link */}
+                <div className="relative">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-grow">
+                      <input
+                        type="text"
+                        value={githubLink}
+                        onChange={(e) => handleLinkChange(e.target.value, setGithubLink, setGithubLinkError)}
+                        placeholder="Github link/ code repository link"
+                        className="w-full p-4 rounded-2xl border border-gray-200 outline-none transition-colors"
+                      />
+                    </div>
+                    <div className="w-12 h-12 rounded-xl border border-gray-200 flex items-center justify-center overflow-hidden">
+                      {githubFavicon && (
+                        <img src={githubFavicon} alt="" className="w-12 h-12" />
+                      )}
+                    </div>
+                  </div>
+                  {githubLinkError && (
+                    <p className="absolute -bottom-5 left-1 text-red-500 text-sm">{githubLinkError}</p>
+                  )}
+                </div>
+
+                {/* Other Link */}
+                <div className="relative">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-grow">
+                      <input
+                        type="text"
+                        value={otherLink}
+                        onChange={(e) => handleLinkChange(e.target.value, setOtherLink, setOtherLinkError)}
+                        placeholder="Any other link"
+                        className="w-full p-4 rounded-2xl border border-gray-200 outline-none transition-colors"
+                      />
+                    </div>
+                    <div className="w-12 h-12 rounded-xl border border-gray-200 flex items-center justify-center overflow-hidden">
+                      {otherFavicon && (
+                        <img src={otherFavicon} alt="" className="w-12 h-12" />
+                      )}
+                    </div>
+                  </div>
+                  {otherLinkError && (
+                    <p className="absolute -bottom-5 left-1 text-red-500 text-sm">{otherLinkError}</p>
+                  )}
+                </div>
+
+                {/* Project Description */}
+                <div className="relative">
+                  <textarea
+                    value={projectDescription}
+                    onChange={(e) => {
+                      if (e.target.value.length <= 195) {
+                        setProjectDescription(e.target.value);
+                      }
+                    }}
+                    placeholder="A short bio about the project"
+                    className="w-full p-4 rounded-2xl border border-gray-200 outline-none transition-colors resize-none h-36"
+                  />
+                  <span className="absolute bottom-4 right-4 text-sm text-gray-400">
+                    {projectDescription.length}/195
+                  </span>
+                </div>
+              </div>
+
+              {/* Updated buttons */}
+              <div className="flex justify-end gap-4 mt-6">
+                <button
+                  onClick={editingProject ? handleAddProject : handleAddProject}
+                  disabled={!isFormValid()}
+                  className={`font-bold px-8 py-3 rounded-2xl transition-colors duration-300 ${
+                    isFormValid()
+                      ? 'bg-[#0085ff] text-white hover:bg-[#2999ff]'
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  }`}
                 >
-                  <motion.div
-                    initial={{ scale: 0.95 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0.95 }}
-                    className="bg-white border border-gray-200 rounded-3xl p-8 w-[500px] relative"
-                  >
-                    {/* Close Button */}
-                  <button
-                      onClick={() => setShowSocialLinks(false)}
-                      className="absolute top-6 left-6 text-gray-500 hover:text-black transition-colors duration-300"
-                    >
-                      <X size={24} />
-                  </button>
+                  {editingProject ? 'Save' : 'Add'}
+              </button>
+            </div>
+          </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-                    {/* Title */}
-                    <h2 className="text-md font-bold text-left mb-6 mt-6">
-                      {socialLinks.length > 0 ? 'Edit Your Links' : 'You can add your Social Links, Music Playlist, Resume, or anything else you want to share with the world!'}
-                    </h2>
+      {/* Social Links Modal */}
+      <AnimatePresence>
+        {showSocialLinks && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-white bg-opacity-25 flex items-center justify-center z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-white border border-gray-200 rounded-3xl p-8 w-[500px] relative"
+            >
+              {/* Close Button */}
+            <button
+                onClick={() => setShowSocialLinks(false)}
+                className="absolute top-6 left-6 text-gray-500 hover:text-black transition-colors duration-300"
+              >
+                <X size={24} />
+            </button>
 
-                    {/* Form Fields */}
-                    <div className="space-y-6 mt-8">
-                      {socialInputs.map((input, index) => (
-                        <div key={index} className="relative">
-                          <div className="flex items-center gap-4">
-                            <div className="flex-grow relative">
-                              <input
-                                type="text"
-                                value={input.url}
-                                onChange={(e) => handleSocialLinkChange(e.target.value, index)}
-                                placeholder={`Social link ${index + 1}`}
-                                className="w-full p-4 rounded-2xl border border-gray-200 outline-none transition-colors"
-                              />
-                              {input.url && (
-                                <button
-                                  onClick={() => handleRemoveSocialLink(index)}
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
-                                >
-                                  <X size={20} />
-                                </button>
-                              )}
-                            </div>
-                            <div className="w-12 h-12 rounded-xl border border-gray-200 flex items-center justify-center overflow-hidden">
-                              {input.isLoading ? (
-                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-400" />
-                              ) : input.favicon ? (
-                                <img src={input.favicon} alt="" className="w-12 h-12" />
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+              {/* Title */}
+              <h2 className="text-md font-bold text-left mb-6 mt-6">
+                {socialLinks.length > 0 ? 'Edit Your Links' : 'You can add your Social Links, Music Playlist, Resume, or anything else you want to share with the world!'}
+              </h2>
+
+              {/* Form Fields */}
+              <div className="space-y-6 mt-8">
+                {socialInputs.map((input, index) => (
+                  <div key={index} className="relative">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-grow relative">
+                        <input
+                          type="text"
+                          value={input.url}
+                          onChange={(e) => handleSocialLinkChange(e.target.value, index)}
+                          placeholder={`Social link ${index + 1}`}
+                          className="w-full p-4 rounded-2xl border border-gray-200 outline-none transition-colors"
+                        />
+                        {input.url && (
+                          <button
+                            onClick={() => handleRemoveSocialLink(index)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
+                          >
+                            <X size={20} />
+                          </button>
+                        )}
+                      </div>
+                      <div className="w-12 h-12 rounded-xl border border-gray-200 flex items-center justify-center overflow-hidden">
+                        {input.isLoading ? (
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-400" />
+                        ) : input.favicon ? (
+                          <img src={input.favicon} alt="" className="w-12 h-12" />
+                        ) : null}
+                      </div>
                     </div>
+                  </div>
+                ))}
+              </div>
 
-                    {/* Save button */}
-                    <div className="flex justify-end mt-6">
-                      <button
-                        onClick={handleSaveSocials}
-                        className={`font-bold px-8 py-3 rounded-2xl transition-colors duration-300 ${
-                          haveSocialInputsChanged() && !socialInputs.some(input => input.isLoading)
-                            ? 'bg-[#0085ff] text-white hover:bg-[#2999ff]'
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        }`}
-                        disabled={!haveSocialInputsChanged() || socialInputs.some(input => input.isLoading)}
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+              {/* Save button */}
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={handleSaveSocials}
+                  className={`font-bold px-8 py-3 rounded-2xl transition-colors duration-300 ${
+                    haveSocialInputsChanged() && !socialInputs.some(input => input.isLoading)
+                      ? 'bg-[#0085ff] text-white hover:bg-[#2999ff]'
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  }`}
+                  disabled={!haveSocialInputsChanged() || socialInputs.some(input => input.isLoading)}
+                >
+                  Save
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
           </>
         ) : (
           <div className="flex items-center justify-center h-full">
