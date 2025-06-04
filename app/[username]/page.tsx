@@ -823,22 +823,37 @@ export default function ProfilePage({ params }: { params: { username: string } }
     }
   };
 
+  // Update the handleLogout function
   const handleLogout = async () => {
     try {
-      // Store the current username before logout
-      const currentUsername = params.username;
+      // First check if we have a session
+      const { data: { session } } = await supabase.auth.getSession();
       
-      // Sign out from Supabase
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (session) {
+        // If we have a session, sign out
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+      }
 
-      // Just reload the current page - this will show the profile in viewer mode
-      window.location.reload();
+      // Clear any cookies that might be persisting the session
+      document.cookie.split(";").forEach((c) => {
+        document.cookie = c
+          .replace(/^ +/, "")
+          .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      });
+
+      // Clear local storage
+      localStorage.clear();
       
-      // Hide the logout button
-      setShowLogout(false);
+      // Clear session storage
+      sessionStorage.clear();
+
+      // Force a hard refresh to clear all state
+      window.location.href = window.location.href;
     } catch (err) {
       console.error('Error during logout:', err);
+      // Even if there's an error, try to force a refresh
+      window.location.href = window.location.href;
     }
   };
 
