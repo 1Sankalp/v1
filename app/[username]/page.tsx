@@ -826,34 +826,23 @@ export default function ProfilePage({ params }: { params: { username: string } }
   // Update the handleLogout function
   const handleLogout = async () => {
     try {
-      // First check if we have a session
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session) {
-        // If we have a session, sign out
-        const { error } = await supabase.auth.signOut();
-        if (error) throw error;
-      }
-
-      // Clear any cookies that might be persisting the session
-      document.cookie.split(";").forEach((c) => {
-        document.cookie = c
-          .replace(/^ +/, "")
-          .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      // Sign out with scope: 'global' to clear all sessions
+      const { error } = await supabase.auth.signOut({
+        scope: 'global'
       });
-
-      // Clear local storage
-      localStorage.clear();
       
-      // Clear session storage
-      sessionStorage.clear();
+      if (error) throw error;
 
-      // Force a hard refresh to clear all state
-      window.location.href = window.location.href;
+      // Clear any local state
+      localStorage.removeItem('supabase.auth.token');
+      sessionStorage.clear();
+      
+      // Redirect to home page to ensure complete reset
+      window.location.href = '/';
     } catch (err) {
       console.error('Error during logout:', err);
-      // Even if there's an error, try to force a refresh
-      window.location.href = window.location.href;
+      // If error, still try to redirect
+      window.location.href = '/';
     }
   };
 
