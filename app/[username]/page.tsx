@@ -825,25 +825,18 @@ export default function ProfilePage({ params }: { params: { username: string } }
 
   const handleLogout = async () => {
     try {
-      // Store current profile data in sessionStorage BEFORE any auth changes
-      const tempData = {
-        projects: projects || [],
-        socialLinks: socialLinks || [],
-        profile,
-            name,
-            bio,
-        avatar,
-        username: params.username // Store username to verify data ownership
-      };
-      console.log('Storing temp profile data before logout:', tempData);
-      sessionStorage.setItem('tempProfileData', JSON.stringify(tempData));
+      // Store the current username before logout
+      const currentUsername = params.username;
       
       // Sign out from Supabase
-      await supabase.auth.signOut();
-      
-      // Force a page refresh to show unauthorized view
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      // Just reload the current page - this will show the profile in viewer mode
       window.location.reload();
       
+      // Hide the logout button
+      setShowLogout(false);
     } catch (err) {
       console.error('Error during logout:', err);
     }
