@@ -253,8 +253,8 @@ const ProjectCard = memo(({
       if (error) throw error;
 
       const updatedProject = { ...project, title };
-      onEdit(updatedProject);
-      setIsEditingTitle(false);
+    onEdit(updatedProject);
+    setIsEditingTitle(false);
     } catch (err) {
       console.error('Error updating project title:', err);
     }
@@ -317,26 +317,26 @@ const ProjectCard = memo(({
           {isHovered && (
             <>
               <div className="absolute -top-2 -left-2 z-50">
-                <motion.button
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
+              <motion.button
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                   className="text-gray-500 hover:text-black transition-colors duration-300 p-2 bg-white rounded-full shadow-sm hover:shadow-md cursor-pointer"
                   onClick={handleDeleteClick}
-                >
-                  <Trash2 size={20} />
-                </motion.button>
+              >
+                <Trash2 size={20} />
+              </motion.button>
               </div>
               <div className="absolute -top-2 -right-2 z-50">
-                <motion.button
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
+              <motion.button
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                   className="text-gray-500 hover:text-black transition-colors duration-300 p-2 bg-white rounded-full shadow-sm hover:shadow-md cursor-pointer"
                   onClick={handleEditButtonClick}
                 >
                   <Pencil size={20} />
-                </motion.button>
+              </motion.button>
               </div>
             </>
           )}
@@ -421,7 +421,7 @@ const ProjectCard = memo(({
 
       {/* Preview */}
       <div className="preview-area">
-        <ProjectPreview url={project.projectLink} />
+      <ProjectPreview url={project.projectLink} />
       </div>
     </div>
   );
@@ -871,34 +871,18 @@ export default function ProfilePage({ params }: { params: { username: string } }
 
     const title = await getPageTitle(projectLink);
     
-    // Get the highest position value
-    const maxPosition = Math.max(...projects.map(p => p.position ?? -1), -1);
-    
-    const newProject: Project = {
-      id: editingProject?.id || Date.now().toString(),
-      projectLink,
-      githubLink: githubLink || undefined,
-      otherLink: otherLink || undefined,
-      description: projectDescription,
-      projectFavicon,
-      githubFavicon: githubLink ? githubFavicon : undefined,
-      otherFavicon: otherLink ? otherFavicon : undefined,
-      title,
-      position: maxPosition + 1 // Add at the end
-    };
-
     try {
       if (editingProject) {
         // Update existing project
         const { error } = await supabase
           .from('projects')
           .update({
-            title: newProject.title,
-            description: newProject.description,
-            link: newProject.projectLink,
-            github_link: newProject.githubLink,
-            other_link: newProject.otherLink,
-            image_url: newProject.projectFavicon,
+            title: title,
+            description: projectDescription,
+            link: projectLink,
+            github_link: githubLink || null,
+            other_link: otherLink || null,
+            image_url: projectFavicon,
             position: editingProject.position, // Keep existing position
             updated_at: new Date().toISOString()
           })
@@ -906,28 +890,97 @@ export default function ProfilePage({ params }: { params: { username: string } }
 
         if (error) throw error;
 
-        setProjects(prev => prev.map(p => p.id === editingProject.id ? newProject : p));
+        const updatedProject = {
+          id: editingProject.id,
+          title,
+          description: projectDescription,
+          projectLink,
+          githubLink: githubLink || undefined,
+          otherLink: otherLink || undefined,
+          projectFavicon,
+          githubFavicon: githubLink ? githubFavicon : undefined,
+          otherFavicon: otherLink ? otherFavicon : undefined,
+          position: editingProject.position
+        };
+
+        setProjects(prev => prev.map(p => p.id === editingProject.id ? updatedProject : p));
       } else {
-        // Create new project
+        // First, get all existing projects to update their positions
+        const { data: existingProjects } = await supabase
+          .from('projects')
+          .select('id, position')
+          .eq('user_id', profile.id)
+          .order('position', { ascending: true });
+
+        if (existingProjects) {
+          // Update positions one by one
+          for (const project of existingProjects) {
+            await supabase
+              .from('projects')
+              .update({ 
+                position: project.position + 1,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', project.id);
+          }
+        }
+
+        // Then create new project at position 0
         const { data, error } = await supabase
           .from('projects')
           .insert({
             user_id: profile.id,
-            title: newProject.title,
-            description: newProject.description,
-            link: newProject.projectLink,
-            github_link: newProject.githubLink,
-            other_link: newProject.otherLink,
-            image_url: newProject.projectFavicon,
-            position: newProject.position
+            title: title,
+            description: projectDescription,
+            link: projectLink,
+            github_link: githubLink || null,
+            other_link: otherLink || null,
+            image_url: projectFavicon,
+            position: 0, // Always add at top
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
           })
           .select()
           .single();
 
         if (error) throw error;
         
-        newProject.id = data.id;
-        setProjects(prev => [newProject, ...prev]);
+        const newProject = {
+          id: data.id,
+          title,
+          description: projectDescription,
+          projectLink,
+          githubLink: githubLink || undefined,
+          otherLink: otherLink || undefined,
+          projectFavicon,
+          githubFavicon: githubLink ? githubFavicon : undefined,
+          otherFavicon: otherLink ? otherFavicon : undefined,
+          position: 0
+        };
+
+        // Update local state
+        setProjects(prev => {
+          const updatedProjects = prev.map(p => ({
+            ...p,
+            position: p.position + 1
+          }));
+          return [newProject, ...updatedProjects];
+        });
+
+        // Force a refresh of the projects data to ensure cache is updated
+        const { data: refreshedData } = await anonClient
+          .from('projects')
+          .select('*')
+          .eq('user_id', profile.id)
+          .order('position', { ascending: true });
+
+        if (refreshedData) {
+          console.log('Refreshed projects data after add:', refreshedData.map(p => ({
+            id: p.id,
+            title: p.title,
+            position: p.position
+          })));
+        }
       }
       
       setEditingProject(null);
@@ -1577,7 +1630,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
                 .from('projects')
                 .update({ position: index })
                 .eq('id', p.id);
-            } catch (err) {
+      } catch (err) {
               console.error('Error updating project position:', err);
             }
           }
@@ -1824,7 +1877,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
 
               // Use authenticated client for updates
               const { error: updateError } = await supabase
-                .from('projects')
+          .from('projects')
                 .upsert(
                   newItems.map((item, index) => ({
                     id: item.id,
@@ -1861,16 +1914,16 @@ export default function ProfilePage({ params }: { params: { username: string } }
                 // Force a refresh of the projects data to ensure cache is updated
                 const { data: refreshedData } = await anonClient
                   .from('projects')
-                  .select('*')
+          .select('*')
                   .eq('user_id', profile.id)
                   .order('position', { ascending: true });
 
                 if (refreshedData) {
                   console.log('Refreshed projects data:', refreshedData.map(p => ({
-                    id: p.id,
-                    title: p.title,
+          id: p.id,
+          title: p.title,
                     position: p.position
-                  })));
+        })));
                 }
               }
               
