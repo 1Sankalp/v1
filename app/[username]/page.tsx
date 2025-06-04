@@ -826,23 +826,15 @@ export default function ProfilePage({ params }: { params: { username: string } }
   // Update the handleLogout function
   const handleLogout = async () => {
     try {
-      // Sign out with scope: 'global' to clear all sessions
-      const { error } = await supabase.auth.signOut({
-        scope: 'global'
-      });
-      
+      const { error } = await supabase.auth.signOut();
       if (error) throw error;
-
-      // Clear any local state
-      localStorage.removeItem('supabase.auth.token');
-      sessionStorage.clear();
       
-      // Redirect to home page to ensure complete reset
-      window.location.href = '/';
+      // Just refresh the current page to see it as unauthenticated user
+      window.location.reload();
     } catch (err) {
       console.error('Error during logout:', err);
-      // If error, still try to redirect
-      window.location.href = '/';
+      // Even if there's an error, try to refresh
+      window.location.reload();
     }
   };
 
