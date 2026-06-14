@@ -1,0 +1,48 @@
+name: Daily Maintenance Report
+
+on:
+  schedule:
+    - cron: "22 3 * * *"
+    - cron: "47 7 * * *"
+    - cron: "27 11 * * *"
+    - cron: "2 16 * * *"
+    - cron: "17 20 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Force a commit (ignore daily slot selection)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  daily-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GH_PAT || github.token }}
+          persist-credentials: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Configure git
+        run: |
+          git config user.name "1Sankalp"
+          git config user.email "76829274+1Sankalp@users.noreply.github.com"
+
+      - name: Run activity bot
+        env:
+          GITHUB_EVENT_SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ inputs.force }}" = "true" ]; then
+            python scripts/activity_bot.py --force
+          else
+            python scripts/activity_bot.py
+          fi
