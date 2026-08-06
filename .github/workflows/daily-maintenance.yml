@@ -7,6 +7,7 @@ on:
     - cron: "27 11 * * *"
     - cron: "2 16 * * *"
     - cron: "17 20 * * *"
+    - cron: "15 19 * * *"  # catch-up if afternoon slots were missed
   workflow_dispatch:
     inputs:
       force:
@@ -14,12 +15,17 @@ on:
         type: boolean
         default: true
 
+concurrency:
+  group: daily-maintenance
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
 jobs:
   daily-report:
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -41,7 +47,9 @@ jobs:
         env:
           GITHUB_EVENT_SCHEDULE: ${{ github.event.schedule }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ inputs.force }}" = "true" ]; then
+          if [ "${{ github.event.schedule }}" = "15 19 * * *" ]; then
+            python scripts/activity_bot.py --catch-up
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ inputs.force }}" = "true" ]; then
             python scripts/activity_bot.py --force
           else
             python scripts/activity_bot.py
