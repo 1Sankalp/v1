@@ -12,6 +12,8 @@ import Link from 'next/link';
 import { Settings2, Trash2, X, Pencil, GripHorizontal, Plus } from 'lucide-react';
 import { SavingIndicator } from '../components/SavingIndicator';
 import { FaviconManager } from '../components/FaviconManager';
+import { ProjectPreview } from '../components/ProjectPreview';
+import ProfileSkeleton from '../components/ProfileSkeleton';
 import {
   DndContext,
   closestCenter,
@@ -44,168 +46,6 @@ interface Project {
   title: string;
   position: number; // Make position required
 }
-
-// Create a stable preview component that behaves like the title editing
-const ProjectPreview = memo(({ url }: { url: string }) => {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [previewError, setPreviewError] = useState(false);
-  const [previewType, setPreviewType] = useState<'iframe' | 'meta' | 'error'>('iframe');
-  const [metaPreview, setMetaPreview] = useState<{
-    title?: string;
-    description?: string;
-    image?: string;
-  }>({});
-
-  useEffect(() => {
-    const loadPreview = async () => {
-      try {
-        const hostname = new URL(url).hostname;
-        
-        // Special handling for known platforms that block iframes
-        const noIframePlatforms = [
-          'github.com', 'www.github.com',
-          'twitter.com', 'www.twitter.com', 'x.com', 'www.x.com',
-          'reddit.com', 'www.reddit.com',
-          'youtube.com', 'www.youtube.com',
-          'youtu.be', 'www.youtu.be'
-        ];
-
-        if (noIframePlatforms.includes(hostname)) {
-          // Fetch meta data for preview
-          try {
-            const corsProxy = 'https://cors-anywhere.herokuapp.com/';
-            const response = await fetch(corsProxy + url);
-            const html = await response.text();
-            
-            // Extract meta information
-            const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-            const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["'][^>]*>/i)
-                          || html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["'][^>]*>/i);
-            
-            // Try multiple image sources in order of preference
-            let imageUrl;
-            
-            // First try Twitter image
-            const twitterImageMatch = html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["'][^>]*>/i);
-            if (twitterImageMatch) {
-              imageUrl = twitterImageMatch[1];
-            }
-            
-            // If no Twitter image, try OpenGraph image
-            if (!imageUrl) {
-              const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/i);
-              if (ogImageMatch) {
-                imageUrl = ogImageMatch[1];
-              }
-            }
-
-            // If still no image, try other meta image tags
-            if (!imageUrl) {
-              const metaImageMatch = html.match(/<meta[^>]*property=["']image["'][^>]*content=["']([^"']+)["'][^>]*>/i);
-              if (metaImageMatch) {
-                imageUrl = metaImageMatch[1];
-              }
-            }
-
-            // Special handling for YouTube URLs
-            if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
-              const videoId = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i)?.[1];
-              if (videoId) {
-                imageUrl = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
-              }
-            }
-
-            // Special handling for GitHub repositories
-            if (hostname.includes('github.com')) {
-              const repoMatch = url.match(/github\.com\/([^\/]+\/[^\/]+)/i);
-              if (repoMatch) {
-                imageUrl = `https://opengraph.githubassets.com/1/${repoMatch[1]}`;
-              }
-            }
-            
-            setMetaPreview({
-              title: titleMatch ? titleMatch[1] : undefined,
-              description: descMatch ? descMatch[1] : undefined,
-              image: imageUrl
-            });
-            setPreviewType('meta');
-          } catch {
-            setPreviewError(true);
-          }
-        } else {
-          setPreviewType('iframe');
-        }
-      } catch {
-        setPreviewError(true);
-      }
-    };
-    
-    loadPreview();
-  }, [url]);
-
-  const handlePreviewClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Stop event from bubbling to card click
-    window.open(url, '_blank');
-  };
-
-  if (previewError) {
-    return (
-      <div 
-        className="absolute top-6 right-6 bottom-6 w-[162px] h-[108px] rounded-xl border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors"
-        onClick={handlePreviewClick}
-      >
-        <p className="text-gray-400 text-xs text-center px-2">Preview not available</p>
-      </div>
-    );
-  }
-
-  if (previewType === 'meta') {
-    return (
-      <div 
-        className="absolute top-6 right-6 bottom-6 w-[162px] h-[108px] rounded-xl border border-gray-200 overflow-hidden bg-white cursor-pointer hover:bg-gray-50 transition-colors"
-        onClick={handlePreviewClick}
-      >
-        <div className="w-full h-full p-2 flex flex-col">
-          {metaPreview.image ? (
-            <div className="w-full h-full overflow-hidden rounded-t-lg bg-gray-50">
-              <img src={metaPreview.image} alt="" className="w-full h-full object-cover" />
-            </div>
-          ) : null}
-          <div className="flex-1 overflow-hidden p-1">
-            {metaPreview.title && (
-              <p className="text-[8px] font-medium line-clamp-2">{metaPreview.title}</p>
-            )}
-            {metaPreview.description && (
-              <p className="text-[6px] text-gray-500 line-clamp-3 mt-0.5">{metaPreview.description}</p>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div 
-      className="absolute top-6 right-6 bottom-6 w-[162px] h-[108px] rounded-xl border border-gray-200 overflow-hidden bg-white cursor-pointer hover:bg-gray-50 transition-colors"
-      onClick={handlePreviewClick}
-    >
-      <iframe
-        ref={iframeRef}
-        src={url}
-        style={{
-          transform: 'scale(0.10)',
-          transformOrigin: '0 0',
-          width: '1000%',
-          height: '1000%',
-          border: 'none',
-          pointerEvents: 'none' // Prevent iframe from capturing clicks
-        }}
-        loading="lazy"
-        sandbox="allow-same-origin allow-scripts"
-      />
-    </div>
-  );
-}, (prevProps, nextProps) => prevProps.url === nextProps.url);
 
 // Move ProjectCard outside DashboardPage
 const ProjectCard = memo(({ 
@@ -1931,8 +1771,8 @@ export default function ProfilePage({ params }: { params: { username: string } }
   }, [profile?.id, isOwnProfile, showSavingIndicator]);
 
   // Only render content after mounting
-  if (!mounted) {
-    return null;
+  if (!mounted || loading) {
+    return <ProfileSkeleton />;
   }
 
     return (

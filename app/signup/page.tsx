@@ -70,6 +70,18 @@ export default function SignupPage() {
   }, [username]);
 
   useEffect(() => {
+    const bounceIfSignedIn = async () => {
+      if (typeof window !== 'undefined' && localStorage.getItem('pendingUsername')) {
+        return;
+      }
+      const { data: { session } } = await supabase.auth.getSession();
+      const username = session?.user?.user_metadata?.username as string | undefined;
+      if (username) router.replace(`/${username}`);
+    };
+    bounceIfSignedIn();
+  }, []);
+
+  useEffect(() => {
     // Check if we have a stored username and user just completed OAuth
     const checkAndCreateUser = async () => {
       const storedUsername = localStorage.getItem('pendingUsername');

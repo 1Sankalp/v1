@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff, MoveLeft, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/app/lib/supabase';
 
-export default function LoginPage() {
+function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -27,6 +27,24 @@ export default function LoginPage() {
       setError(decodeURIComponent(errorMsg));
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const bounceIfSignedIn = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      let username = session.user.user_metadata?.username as string | undefined;
+      if (!username) {
+        const { data } = await supabase
+          .from('users')
+          .select('username')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        username = data?.username;
+      }
+      if (username) router.replace(`/${username}`);
+    };
+    bounceIfSignedIn();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -241,5 +259,17 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPageRoute() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white px-4 md:px-24 pt-16 md:pt-32">
+        <div className="h-10 w-80 bg-gray-100 rounded-lg animate-pulse" />
+      </div>
+    }>
+      <LoginPage />
+    </Suspense>
   );
 } 

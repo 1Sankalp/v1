@@ -37,7 +37,12 @@ export default function AuthProvider({
           window.location.href = '/';
         }
       } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        // For sign in and token refresh, do a full refresh to ensure all state is updated
+        const username = session?.user?.user_metadata?.username as string | undefined;
+        const path = window.location.pathname;
+        if (username && (path === '/' || path === '/login' || path === '/signup')) {
+          window.location.href = `/${username}`;
+          return;
+        }
         router.refresh();
       }
     });
