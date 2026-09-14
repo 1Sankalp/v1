@@ -1,59 +1,24 @@
 'use client';
 
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from './lib/supabase';
 import LandingSkeleton from './components/LandingSkeleton';
 
 function HomeInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const run = async () => {
-      const code = searchParams?.get('code');
-      if (code) {
-        router.replace(`/auth/callback?code=${encodeURIComponent(code)}`);
-        return;
-      }
-
-      try {
-        const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          let username = session.user.user_metadata?.username as string | undefined;
-          if (!username) {
-            const { data } = await supabase
-              .from('users')
-              .select('username')
-              .eq('id', session.user.id)
-              .maybeSingle();
-            username = data?.username;
-          }
-          if (username) {
-            router.replace(`/${username}`);
-            return;
-          }
-        }
-      } catch (error) {
-        console.error('Landing session check failed:', error);
-      }
-
-      setReady(true);
-    };
-
-    run();
+    const code = searchParams?.get('code');
+    if (code) {
+      router.replace(`/auth/callback?code=${encodeURIComponent(code)}`);
+    }
   }, [searchParams, router]);
 
   const handleNavigation = (path: string) => {
     window.location.href = path;
   };
-
-  if (!ready) {
-    return <LandingSkeleton />;
-  }
 
   return (
     <div className="min-h-screen bg-white">
