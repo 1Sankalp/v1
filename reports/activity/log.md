@@ -383,3 +383,4 @@
 - 2026-09-24 15:50 UTC — `source-stats` → `reports/activity/2026-09-24-slot3-20260924-155058.md`
 - 2026-09-24 23:13 UTC — `maintenance-log` → `reports/activity/2026-09-24-slot5-20260924-231337.md`
 - 2026-09-25 08:56 UTC — `health-snapshot` → `reports/activity/2026-09-25-slot1-20260925-085634.md`
+- 2026-09-25 12:58 UTC — `dependency-fingerprint` → `reports/activity/2026-09-25-slot2-20260925-125834.md`
