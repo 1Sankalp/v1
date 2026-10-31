@@ -1,0 +1,4 @@
+{
+  "installCommand": "npm ci --include=dev",
+  "ignoreCommand": "bash -c 'git diff --name-only HEAD^ HEAD | grep -qEv \"^reports/activity/\" && exit 1 || exit 0'"
+}
