@@ -1,15 +1,12 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/app/lib/supabase-admin';
 
-// Create a Supabase client with the service role key
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
     const { id, email, username } = await request.json();
+    const supabase = getSupabaseAdmin();
 
     // Create user record with service role client
     const { error: userError } = await supabase

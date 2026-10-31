@@ -1,16 +1,11 @@
 'use server'
 
-import { createClient } from '@supabase/supabase-js'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
-
-// Create a new Supabase client for server-side operations
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { getSupabaseAdmin } from '@/app/lib/supabase-admin'
 
 export async function createUser(email: string, password: string, username: string) {
+  const supabase = getSupabaseAdmin();
   const hashedPassword = await bcrypt.hash(password, 10);
   
   const { data: newUser, error: createError } = await supabase
@@ -32,6 +27,7 @@ export async function createUser(email: string, password: string, username: stri
 }
 
 export async function verifyUser(email: string, password: string) {
+  const supabase = getSupabaseAdmin();
   const { data: user, error } = await supabase
     .from('users')
     .select('*')

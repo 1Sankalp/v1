@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   description: 'Your super portfolio',
 };
 
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({
   children,
 }: {
